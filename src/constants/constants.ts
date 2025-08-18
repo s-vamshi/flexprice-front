@@ -65,7 +65,7 @@ export const billlingPeriodOptions = [
 ];
 
 export const creditGrantPeriodOptions = [
-	// { label: 'Daily', value: 'DAILY' },
+	{ label: 'Daily', value: CREDIT_GRANT_PERIOD.DAILY },
 	{ label: 'Weekly', value: CREDIT_GRANT_PERIOD.WEEKLY },
 	{ label: 'Monthly', value: CREDIT_GRANT_PERIOD.MONTHLY },
 	{ label: 'Yearly', value: CREDIT_GRANT_PERIOD.ANNUAL },
