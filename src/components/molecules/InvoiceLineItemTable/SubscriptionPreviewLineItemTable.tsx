@@ -27,6 +27,11 @@ const formatAmount = (amount: number, currency: string): string => {
 	return `${getCurrencySymbol(currency)}${amount}`;
 };
 
+const formatPriceUnitAmount = (amount: number, symbol: string): string => {
+	if (amount === 0) return '--';
+	return `${symbol}${amount}`;
+};
+
 const formatPriceType = (value: string): string => {
 	switch (value) {
 		case 'FIXED':
@@ -98,6 +103,7 @@ const SubscriptionPreviewLineItemTable: FC<Props> = ({
 							)}
 							<th className='py-3 px-4 text-center text-sm font-medium text-gray-900'>Quantity</th>
 							<th className='py-3 px-0 text-right text-sm font-medium text-gray-900'>Amount</th>
+							<th className='py-3 px-0 text-right text-sm font-medium text-gray-900'>Price Unit Amount</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -113,6 +119,9 @@ const SubscriptionPreviewLineItemTable: FC<Props> = ({
 									)}
 									<td className='py-4 px-4 text-center text-sm text-gray-600'>{item.quantity ? item.quantity : '--'}</td>
 									<td className='py-4 px-0 text-right text-sm text-gray-900 '>{formatAmount(item.amount ?? 0, item.currency)}</td>
+									<td className='py-4 px-0 text-right text-sm text-gray-900 '>
+										{formatPriceUnitAmount(item.price_unit_amount ?? 0, item.pricing_unit?.symbol ?? '')}
+									</td>
 								</tr>
 							);
 						})}

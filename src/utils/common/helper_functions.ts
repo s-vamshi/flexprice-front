@@ -249,3 +249,47 @@ export const getCouponBreakdownText = (
 export const generateUniqueId = (): string => {
 	return uuidv4().replace(/-/g, '');
 };
+
+/**
+ * Generates a description for conversion rate based on the rate value and price unit code
+ * @param conversionRate - The conversion rate value
+ * @param priceUnitCode - The price unit code (e.g., 'CRD', 'PTS')
+ * @param baseCurrency - The base currency code (e.g., 'USD')
+ * @returns A formatted description string
+ */
+export const getConversionRateDescription = (conversionRate: string | number, priceUnitCode: string, baseCurrency: string): string => {
+	const rate = parseFloat(conversionRate.toString());
+
+	if (isNaN(rate) || rate <= 0) {
+		return '';
+	}
+
+	if (rate === 1) {
+		return `1 ${baseCurrency.toUpperCase()} = 1 ${priceUnitCode.toUpperCase()}`;
+	} else if (rate > 1) {
+		return `1 ${baseCurrency.toUpperCase()} = ${rate} ${priceUnitCode.toUpperCase()}`;
+	} else {
+		const inverseRate = (1 / rate).toFixed(2);
+		return `1 ${baseCurrency.toUpperCase()} = ${inverseRate} ${priceUnitCode.toUpperCase()}`;
+	}
+};
+
+/**
+ * Converts credits to currency amount based on conversion rate
+ * @param credits - The number of credits
+ * @param conversionRate - The conversion rate (currency per credit)
+ * @returns The equivalent currency amount
+ */
+export const getCurrencyAmountFromCredits = (credits: number, conversionRate: number): number => {
+	return credits * conversionRate;
+};
+
+/**
+ * Converts currency amount to credits based on conversion rate
+ * @param amount - The currency amount
+ * @param conversionRate - The conversion rate (currency per credit)
+ * @returns The equivalent number of credits
+ */
+export const getCreditsFromCurrencyAmount = (amount: number, conversionRate: number): number => {
+	return amount / conversionRate;
+};

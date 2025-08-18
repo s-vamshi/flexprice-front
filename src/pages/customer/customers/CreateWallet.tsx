@@ -4,7 +4,7 @@ import { refetchQueries } from '@/core/services/tanstack/ReactQueryProvider';
 import { cn } from '@/lib/utils';
 import { Wallet } from '@/models/Wallet';
 import WalletApi from '@/api/WalletApi';
-import { getCurrencySymbol } from '@/utils/common/helper_functions';
+import { getCurrencySymbol, getConversionRateDescription } from '@/utils/common/helper_functions';
 import { useMutation } from '@tanstack/react-query';
 import { FC, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -112,6 +112,11 @@ const CreateWallet: FC<Props> = ({ customerId, onSuccess = () => {}, open, onOpe
 								onChange={(e) => {
 									setwalletPayload({ ...walletPayload, conversion_rate: e as unknown as number });
 								}}
+								description={
+									walletPayload.conversion_rate && walletPayload.currency
+										? getConversionRateDescription(walletPayload.conversion_rate, 'CREDIT', walletPayload.currency)
+										: undefined
+								}
 							/>
 						</div>
 					</div>

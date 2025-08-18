@@ -2,13 +2,14 @@ import { FC, useEffect, useState } from 'react';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Button, Input, Sheet, Select } from '@/components/atoms';
+import { Button, Input, Sheet, Select, Spacer } from '@/components/atoms';
 import PriceUnitApi from '@/api/PriceUnitApi';
 import { PriceUnitResponse } from '@/types/dto/PriceUnit';
 import { Decimal } from 'decimal.js';
 import { refetchQueries } from '@/core/services/tanstack/ReactQueryProvider';
 import { logger } from '@/utils/common/Logger';
 import { currencyOptions } from '@/constants/constants';
+import { getConversionRateDescription } from '@/utils/common/helper_functions';
 
 const schema = z.object({
 	name: z.string().min(1, 'Name is required'),
@@ -119,67 +120,76 @@ const PriceUnitDrawer: FC<Props> = ({ data, onOpenChange, open, trigger }) => {
 				title={data ? 'Edit Price Unit' : 'Create Price Unit'}
 				description={data ? 'Update price unit details.' : 'Enter details to create a new price unit.'}
 				trigger={trigger}>
-				<div className='space-y-4'>
-					<div className='space-y-4'>
-						<Input
-							label='Name'
-							placeholder='Enter Name'
-							value={formData.name || ''}
-							onChange={(e) => handleChange('name', e)}
-							error={errors.name}
-						/>
+				<div className='space-y-4 mt-4'>
+					<Input
+						label='Name'
+						placeholder='Enter Name'
+						value={formData.name || ''}
+						onChange={(e) => handleChange('name', e)}
+						error={errors.name}
+						description='A descriptive name for the price unit (e.g., US Dollar, Euro)'
+					/>
 
-						<Input
-							label='Code'
-							placeholder='e.g. USD'
-							value={formData.code || ''}
-							onChange={(e) => handleChange('code', e)}
-							error={errors.code}
-							disabled={isEdit}
-							maxLength={3}
-						/>
+					<Input
+						label='Code'
+						placeholder='e.g. USD'
+						value={formData.code || ''}
+						onChange={(e) => handleChange('code', e)}
+						error={errors.code}
+						disabled={isEdit}
+						maxLength={3}
+						description='ISO 4217 currency code (3 letters, e.g., USD, EUR, GBP)'
+					/>
 
-						<Input
-							label='Symbol'
-							placeholder='e.g. $'
-							value={formData.symbol || ''}
-							onChange={(e) => handleChange('symbol', e)}
-							error={errors.symbol}
-							maxLength={10}
-						/>
+					<Input
+						label='Symbol'
+						placeholder='e.g. $'
+						value={formData.symbol || ''}
+						onChange={(e) => handleChange('symbol', e)}
+						error={errors.symbol}
+						maxLength={10}
+						description='Currency symbol used for display (e.g., $, €, £)'
+					/>
 
-						<Select
-							label='Base Currency'
-							placeholder='Select base currency'
-							value={formData.base_currency || ''}
-							options={currencyOptions}
-							onChange={(value) => handleChange('base_currency', value)}
-							error={errors.base_currency}
-							disabled={isEdit}
-						/>
+					<Select
+						label='Base Currency'
+						placeholder='Select base currency'
+						value={formData.base_currency || ''}
+						options={currencyOptions}
+						onChange={(value) => handleChange('base_currency', value)}
+						error={errors.base_currency}
+						disabled={isEdit}
+						description='The reference currency for conversion rates'
+					/>
 
-						<Input
-							label='Conversion Rate'
-							type='number'
-							step='any'
-							placeholder='e.g. 1.0'
-							value={formData.conversion_rate?.toString() || ''}
-							onChange={(e) => handleChange('conversion_rate', e)}
-							error={errors.conversion_rate}
-						/>
+					<Input
+						label='Conversion Rate'
+						type='number'
+						step='any'
+						placeholder='e.g. 1.0'
+						value={formData.conversion_rate?.toString() || ''}
+						onChange={(e) => handleChange('conversion_rate', e)}
+						error={errors.conversion_rate}
+						description={
+							formData.conversion_rate && formData.code && formData.base_currency
+								? getConversionRateDescription(formData.conversion_rate.toString(), formData.code, formData.base_currency)
+								: 'Rate to convert from base currency to this price unit (e.g., 1.0 for same currency, 0.85 for USD to EUR)'
+						}
+					/>
 
-						<Input
-							label='Precision'
-							type='number'
-							placeholder='e.g. 2'
-							value={formData.precision?.toString() || '2'}
-							onChange={(e) => handleChange('precision', Number(e))}
-							error={errors.precision}
-							min={0}
-							max={8}
-						/>
-					</div>
+					<Input
+						label='Precision'
+						type='number'
+						placeholder='e.g. 2'
+						value={formData.precision?.toString() || '2'}
+						onChange={(e) => handleChange('precision', Number(e))}
+						error={errors.precision}
+						min={0}
+						max={8}
+						description='Number of decimal places to display (0-8, e.g., 2 for $10.50, 0 for ¥1000)'
+					/>
 
+					<Spacer height={'0px'} />
 					<Button isLoading={isPending} disabled={isPending || isCtaDisabled} onClick={handleSubmit}>
 						{isPending ? 'Saving...' : data ? 'Update Price Unit' : 'Create Price Unit'}
 					</Button>

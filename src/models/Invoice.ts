@@ -3,6 +3,7 @@ import Customer from './Customer';
 import { Subscription } from './Subscription';
 import { PAYMENT_STATUS } from '@/constants/payment';
 import { TaxApplied } from './Tax';
+import { PriceUnit } from './PriceUnit';
 
 export interface Invoice extends BaseModel {
 	readonly customer_id: string;
@@ -54,6 +55,8 @@ export interface LineItem extends BaseModel {
 	readonly period_start: string;
 	readonly period_end: string;
 	readonly metadata: Metadata;
+	readonly price_unit_amount: number;
+	readonly pricing_unit: PriceUnit;
 }
 
 export enum INVOICE_TYPE {

@@ -26,7 +26,7 @@ import { Card } from '@/components/atoms';
 import formatChips from '@/utils/common/format_chips';
 import { getFeatureTypeChips } from '@/components/molecules/CustomerUsageTable/CustomerUsageTable';
 import { formatAmount } from '@/components/atoms/Input/Input';
-import ChargeValueCell from './ChargeValueCell';
+import { CustomPricingChargeValueCell, RegularChargeValueCell } from './ChargeValueCell';
 import { BILLING_PERIOD } from '@/constants/constants';
 import { Entitlement } from '@/models/Entitlement';
 import { ENTITY_STATUS } from '@/models/base';
@@ -133,7 +133,13 @@ const chargeColumns: ColumnData<Price>[] = [
 	{
 		title: 'Value',
 		render(rowData) {
-			return <ChargeValueCell data={rowData} />;
+			return <RegularChargeValueCell data={rowData} />;
+		},
+	},
+	{
+		title: 'Price Unit',
+		render(rowData) {
+			return <CustomPricingChargeValueCell data={rowData} />;
 		},
 	},
 ];

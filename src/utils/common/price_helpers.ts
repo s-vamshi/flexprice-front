@@ -8,23 +8,18 @@ interface Props {
 	symbol?: string;
 }
 
-export const getPriceTableCharge = ({ price, symbol }: Props) => {
-	const isCustomPriceUnit = price.price_unit_type === PRICE_UNIT_TYPE.CUSTOM;
-	const currencySymbol = isCustomPriceUnit ? symbol : getCurrencySymbol(price.currency);
+// Function for regular pricing (non-custom price units)
+export const getRegularPriceTableCharge = (price: Price): string => {
+	const currencySymbol = getCurrencySymbol(price.currency);
 
 	// Helper function to get the appropriate amount
 	const getAmount = () => {
-		if (isCustomPriceUnit) {
-			return price.price_unit_config?.amount || '0';
-		}
 		return price.amount;
 	};
 
 	// Helper function to get tiered pricing unit amount
 	const getTieredUnitAmount = () => {
-		const customTierAmount = price.price_unit_config?.price_unit_tiers?.[0]?.unit_amount;
-		const regularTierAmount = price.tiers?.[0]?.unit_amount;
-		return customTierAmount || regularTierAmount || '0';
+		return price.tiers?.[0]?.unit_amount || '0';
 	};
 
 	// Handle fixed pricing
@@ -50,6 +45,56 @@ export const getPriceTableCharge = ({ price, symbol }: Props) => {
 		default:
 			return price.display_amount;
 	}
+};
+
+// Function for custom pricing (custom price units)
+export const getCustomPriceTableCharge = (price: Price): string => {
+	const currencySymbol = price.pricing_unit?.symbol || getCurrencySymbol(price.currency);
+
+	// Helper function to get the appropriate amount
+	const getAmount = () => {
+		return price.price_unit_amount || price.price_unit_config?.amount || '0';
+	};
+
+	// Helper function to get tiered pricing unit amount
+	const getTieredUnitAmount = () => {
+		return price.price_unit_tiers?.[0]?.unit_amount || price.price_unit_config?.price_unit_tiers?.[0]?.unit_amount || '0';
+	};
+
+	// Handle fixed pricing
+	if (price.type === PRICE_TYPE.FIXED) {
+		return `${currencySymbol} ${formatAmount(getAmount())}`;
+	}
+
+	// Handle variable pricing based on billing model
+	switch (price.billing_model) {
+		case BILLING_MODEL.PACKAGE: {
+			const divideBy = (price.transform_quantity as { divide_by: number }).divide_by;
+			return `${currencySymbol} ${formatAmount(getAmount())} / ${formatAmount(divideBy.toString())} units`;
+		}
+
+		case BILLING_MODEL.FLAT_FEE:
+			return `${currencySymbol} ${formatAmount(getAmount())} / unit`;
+
+		case BILLING_MODEL.TIERED: {
+			const unitAmount = getTieredUnitAmount();
+			return `Starts at ${currencySymbol} ${formatAmount(unitAmount)} / unit`;
+		}
+
+		default:
+			return price.display_amount;
+	}
+};
+
+// Legacy function for backward compatibility
+export const getPriceTableCharge = ({ price }: Props) => {
+	const isCustomPriceUnit = price.price_unit_type === PRICE_UNIT_TYPE.CUSTOM;
+
+	if (isCustomPriceUnit) {
+		return getCustomPriceTableCharge(price);
+	}
+
+	return getRegularPriceTableCharge(price);
 };
 
 export const getActualPriceForTotal = (price: Price) => {

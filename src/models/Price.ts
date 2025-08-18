@@ -28,6 +28,8 @@ export interface Price extends BaseModel {
 	readonly metadata: Record<string, string> | null;
 	readonly price_unit_config?: PriceUnitConfig;
 	readonly pricing_unit?: PriceUnit;
+	readonly price_unit_amount?: string;
+	readonly price_unit_tiers?: Tier[];
 }
 
 export interface Tier {

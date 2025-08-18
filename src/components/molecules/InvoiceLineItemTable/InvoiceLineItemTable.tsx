@@ -21,6 +21,11 @@ interface Props {
 	invoiceType?: INVOICE_TYPE;
 }
 
+const formatPriceUnitAmount = (amount: number, symbol: string): string => {
+	if (amount === 0) return '--';
+	return `${symbol}${amount}`;
+};
+
 const formatToShortDate = (dateString: string): string => {
 	const date = new Date(dateString);
 	const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
@@ -103,6 +108,7 @@ const InvoiceLineItemTable: FC<Props> = ({
 								)}
 								<th className='py-3 px-4 text-right text-sm font-medium text-gray-900'>Quantity</th>
 								<th className='py-3 px-0 text-right text-sm w-36 font-medium text-gray-900'>Amount</th>
+								<th className='py-3 px-0 text-right text-sm font-medium text-gray-900'>Price Unit Amount</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -118,6 +124,9 @@ const InvoiceLineItemTable: FC<Props> = ({
 										)}
 										<td className='py-4 px-4 text-right text-sm text-gray-600'>{item.quantity ? item.quantity : '--'}</td>
 										<td className='py-4 px-0 text-right w-36  text-sm text-gray-600'>{formatAmount(item.amount ?? 0, item.currency)}</td>
+										<td className='py-4 px-0 text-right text-sm text-gray-900 '>
+											{formatPriceUnitAmount(item.price_unit_amount ?? 0, item.pricing_unit?.symbol ?? '')}
+										</td>
 									</tr>
 								);
 							})}
