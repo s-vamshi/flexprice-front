@@ -43,52 +43,37 @@ interface PreviewProps {
 }
 
 /**
- * Determines if any charge has ADVANCE invoice cadence
+ * Component that displays subscription preview information including start date and first invoice details
+ *
+ * Pricing Logic:
+ * 1. Plan charges: FIXED charges from the plan (separate from addons)
+ * 2. Addon charges: Calculated separately based on addon requests
+ * 3. Line-item discounts: Applied to individual plan charges only
+ * 4. Subscription discounts: Applied to plan total after line-item discounts
+ * 5. Tax: Applied to total (plan after discounts + addons)
  */
-// TODO: This is a temporary function to check if any charge has ADVANCE invoice cadence
-// TODO: This should be removed once the invoice cadence is implemented
-const hasAdvanceCharge = (charges: Price[]): boolean => {
-	return charges?.some((charge) => charge.invoice_cadence === 'ADVANCE') ?? false;
-};
+
+// ============================================================================
+// PRICING CALCULATION FUNCTIONS
+// ============================================================================
 
 /**
- * Generates billing description based on charges and billing period
+ * Calculates plan pricing with line-item discounts
  */
-const getBillingDescription = (charges: Price[], billingPeriod: BILLING_PERIOD, date: Date): string => {
-	const period = PERIOD_DURATION[billingPeriod] || formatBillingPeriodForDisplay(billingPeriod).toLowerCase();
-	return hasAdvanceCharge(charges) ? `Bills immediately for ${period}` : `Bills on ${formatDate(date)} for ${period}`;
-};
-
-/**
- * Calculates the first invoice date based on billing cycle and period
- */
-const calculateFirstInvoiceDate = (startDate: Date, billingPeriod: BILLING_PERIOD, billingCycle: BILLING_CYCLE): Date => {
-	return billingCycle === BILLING_CYCLE.CALENDAR
-		? calculateCalendarBillingAnchor(startDate, billingPeriod)
-		: calculateAnniversaryBillingAnchor(startDate, billingPeriod);
-};
-
-/**
- * Calculates the total amount with line item coupons applied
- */
-const calculateTotalWithLineItemCoupons = (
-	charges: Price[],
-	priceOverrides: Record<string, string>,
-	lineItemCoupons: Record<string, Coupon>,
-): { total: number; lineItemDiscounts: Record<string, number>; totalDiscount: number } => {
+const calculatePlanPricing = (planCharges: Price[], priceOverrides: Record<string, string>, lineItemCoupons: Record<string, Coupon>) => {
 	let total = 0;
+	let originalTotal = 0;
 	let totalDiscount = 0;
 	const lineItemDiscounts: Record<string, number> = {};
 
-	charges.forEach((charge) => {
+	planCharges.forEach((charge) => {
 		const currentAmount = getCurrentPriceAmount(charge, priceOverrides);
 		const chargeAmount = parseFloat(currentAmount);
+		originalTotal += chargeAmount; // Always add to original total
 
 		// Only apply line item coupons to FIXED charges, not USAGE/metered charges
-		if (charge.type === 'FIXED') {
+		if (charge.type === PRICE_TYPE.FIXED) {
 			const chargeCoupon = lineItemCoupons[charge.id];
-
-			// Calculate discount for this charge
 			const chargeDiscount = chargeCoupon ? calculateCouponDiscount(chargeCoupon, chargeAmount) : 0;
 
 			lineItemDiscounts[charge.id] = chargeDiscount;
@@ -100,18 +85,13 @@ const calculateTotalWithLineItemCoupons = (
 		}
 	});
 
-	return { total, lineItemDiscounts, totalDiscount };
+	return { total, originalTotal, lineItemDiscounts, totalDiscount };
 };
 
 /**
- * Calculates addon total based on addon requests and their prices
+ * Calculates addon pricing based on addon requests
  */
-const calculateAddonTotal = (
-	addons: AddAddonToSubscriptionRequest[],
-	allAddons: any[],
-	billingPeriod: string,
-	currency: string,
-): { total: number; addonDetails: Array<{ name: string; amount: number }> } => {
+const calculateAddonPricing = (addons: AddAddonToSubscriptionRequest[], allAddons: any[], billingPeriod: string, currency: string) => {
 	let total = 0;
 	const addonDetails: Array<{ name: string; amount: number }> = [];
 
@@ -123,7 +103,7 @@ const calculateAddonTotal = (
 				(price: Price) =>
 					price.billing_period.toLowerCase() === billingPeriod.toLowerCase() &&
 					price.currency.toLowerCase() === currency.toLowerCase() &&
-					price.type === 'FIXED',
+					price.type === PRICE_TYPE.FIXED,
 			);
 
 			if (matchingPrice) {
@@ -149,24 +129,167 @@ const calculateTaxAmount = (subtotal: number, taxRateOverrides: TaxRateOverride[
 	// Filter tax overrides for the current currency and auto-apply enabled
 	const applicableTaxes = taxRateOverrides.filter((tax) => tax.currency.toLowerCase() === currency.toLowerCase() && tax.auto_apply);
 
-	// For simplicity, we'll assume a basic tax calculation
-	// In a real implementation, you would fetch tax rates and calculate properly
-	// For now, let's assume a 10% tax rate for demo purposes
+	// For demo purposes, applying a 10% tax when applicable taxes exist
 	// TODO: Implement proper tax rate fetching and calculation
-
 	if (applicableTaxes.length > 0) {
-		// For demo purposes, applying a 10% tax
 		return subtotal * 0.1;
 	}
 
 	return 0;
 };
 
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Determines if any charge has ADVANCE invoice cadence
+ */
+const hasAdvanceCharge = (charges: Price[]): boolean => {
+	return charges?.some((charge) => charge.invoice_cadence === 'ADVANCE') ?? false;
+};
+
+/**
+ * Generates billing description based on charges and billing period
+ */
+const getBillingDescription = (charges: Price[], billingPeriod: BILLING_PERIOD, date: Date): string => {
+	const period = PERIOD_DURATION[billingPeriod] || formatBillingPeriodForDisplay(billingPeriod).toLowerCase();
+	return hasAdvanceCharge(charges) ? `Bills immediately for ${period}` : `Bills on ${formatDate(date)} for ${period}`;
+};
+
+/**
+ * Calculates the first invoice date based on billing cycle and period
+ */
+const calculateFirstInvoiceDate = (startDate: Date, billingPeriod: BILLING_PERIOD, billingCycle: BILLING_CYCLE): Date => {
+	return billingCycle === BILLING_CYCLE.CALENDAR
+		? calculateCalendarBillingAnchor(startDate, billingPeriod)
+		: calculateAnniversaryBillingAnchor(startDate, billingPeriod);
+};
+
+// ============================================================================
+// INVOICE PREVIEW COMPONENT
+// ============================================================================
+
+/**
+ * Renders the invoice preview section with pricing breakdown
+ */
+const InvoicePreview = ({
+	planOriginalTotal,
+	addonTotal,
+	addonDetails,
+	lineItemTotalDiscount,
+	subscriptionCouponDiscount,
+	taxAmount,
+	finalTotal,
+	currency,
+	billingDescription,
+	totalCoupons,
+	totalLineItemCoupons,
+}: {
+	planOriginalTotal: number;
+	addonTotal: number;
+	addonDetails: Array<{ name: string; amount: number }>;
+	lineItemTotalDiscount: number;
+	subscriptionCouponDiscount: number;
+	taxAmount: number;
+	finalTotal: number;
+	currency: string;
+	billingDescription: string;
+	totalCoupons: number;
+	totalLineItemCoupons: number;
+}) => (
+	<div>
+		<div className='space-y-1'>
+			{/* Plan Subtotal */}
+			<p className='text-sm text-gray-600'>
+				Plan: {getCurrencySymbol(currency || 'USD')}
+				{planOriginalTotal.toFixed(2)}
+			</p>
+
+			{/* Addons */}
+			{addonTotal > 0 && (
+				<>
+					<p className='text-sm text-gray-600'>
+						Addons: {getCurrencySymbol(currency || 'USD')}
+						{addonTotal.toFixed(2)}
+					</p>
+					{addonDetails.map((addon, index) => (
+						<p key={index} className='text-xs text-gray-500 ml-4'>
+							• {addon.name}: {getCurrencySymbol(currency || 'USD')}
+							{addon.amount.toFixed(2)}
+						</p>
+					))}
+				</>
+			)}
+
+			{/* Subtotal before discounts */}
+			{(lineItemTotalDiscount > 0 || subscriptionCouponDiscount > 0) && (
+				<p className='text-sm text-gray-600'>
+					Subtotal: {getCurrencySymbol(currency || 'USD')}
+					{(planOriginalTotal + addonTotal).toFixed(2)}
+				</p>
+			)}
+
+			{/* Discounts */}
+			{totalCoupons > 0 && (
+				<>
+					{lineItemTotalDiscount > 0 && (
+						<p className='text-sm text-blue-600'>
+							Line-item discounts: -{getCurrencySymbol(currency || 'USD')}
+							{lineItemTotalDiscount.toFixed(2)}
+						</p>
+					)}
+					{subscriptionCouponDiscount > 0 && (
+						<p className='text-sm text-blue-600'>
+							Subscription discount: -{getCurrencySymbol(currency || 'USD')}
+							{subscriptionCouponDiscount.toFixed(2)}
+						</p>
+					)}
+				</>
+			)}
+
+			{/* Tax */}
+			{taxAmount > 0 && (
+				<p className='text-sm text-gray-600'>
+					Tax: {getCurrencySymbol(currency || 'USD')}
+					{taxAmount.toFixed(2)}
+				</p>
+			)}
+
+			{/* Final total */}
+			<p className='text-sm text-gray-900 font-semibold border-t border-gray-200 pt-1'>
+				Net payable: {getCurrencySymbol(currency || 'USD')}
+				{finalTotal.toFixed(2)}
+			</p>
+		</div>
+
+		{totalCoupons > 0 && (
+			<p className='text-xs text-gray-500 mt-2'>
+				{totalCoupons} coupon{totalCoupons > 1 ? 's' : ''} applied
+				{lineItemTotalDiscount > 0 && totalLineItemCoupons > 0 && (
+					<span className='ml-1'>
+						({totalLineItemCoupons} line-item, {totalCoupons - totalLineItemCoupons} subscription)
+					</span>
+				)}
+			</p>
+		)}
+
+		<p className='text-sm text-gray-600 mt-2'>{billingDescription}</p>
+	</div>
+);
+
 /**
  * Component that displays subscription preview information including start date and first invoice details
+ *
+ * Pricing Logic:
+ * 1. Plan charges: FIXED charges from the plan (separate from addons)
+ * 2. Addon charges: Calculated separately based on addon requests
+ * 3. Line-item discounts: Applied to individual plan charges only
+ * 4. Subscription discounts: Applied to plan total after line-item discounts
+ * 5. Tax: Applied to total (plan after discounts + addons)
  */
 const Preview = ({
-	data,
+	data, // Plan prices only (excluding addons)
 	className,
 	phases,
 	coupons = [],
@@ -175,6 +298,10 @@ const Preview = ({
 	taxRateOverrides = [],
 	addons = [],
 }: PreviewProps) => {
+	// ============================================================================
+	// INITIALIZATION & DATA FETCHING
+	// ============================================================================
+
 	const firstPhase = phases.at(0);
 	const startDate = firstPhase?.start_date;
 	const billingCycle = firstPhase?.billing_cycle || BILLING_CYCLE.ANNIVERSARY;
@@ -190,39 +317,60 @@ const Preview = ({
 		refetchOnWindowFocus: false,
 	});
 
-	const recurringCharges = useMemo(() => data.filter((charge) => charge.type === 'FIXED'), [data]);
+	// ============================================================================
+	// PLAN PRICING CALCULATIONS
+	// ============================================================================
 
-	const usageCharges = useMemo(() => data.filter((charge) => charge.type === PRICE_TYPE.USAGE), [data]);
+	// Filter only FIXED charges from plan (excludes USAGE/metered charges)
+	const recurringCharges = useMemo(() => data.filter((charge) => charge.type === PRICE_TYPE.FIXED), [data]);
 
-	const { total: recurringTotal, totalDiscount: lineItemTotalDiscount } = useMemo(() => {
-		return calculateTotalWithLineItemCoupons(recurringCharges, priceOverrides, lineItemCoupons);
+	// Calculate plan pricing with line-item discounts applied
+	const {
+		total: recurringTotal,
+		originalTotal: recurringOriginalTotal,
+		totalDiscount: lineItemTotalDiscount,
+	} = useMemo(() => {
+		return calculatePlanPricing(recurringCharges, priceOverrides, lineItemCoupons);
 	}, [recurringCharges, priceOverrides, lineItemCoupons]);
 
-	// Calculate addon total
+	// ============================================================================
+	// ADDON PRICING CALCULATIONS
+	// ============================================================================
+
+	// Get billing period and currency from plan data
 	const billingPeriod = useMemo(() => data[0]?.billing_period.toUpperCase() as BILLING_PERIOD, [data]);
 	const currency = useMemo(() => recurringCharges[0]?.currency || 'USD', [recurringCharges]);
 
+	// Calculate addon pricing separately from plan pricing
 	const { total: addonTotal, addonDetails } = useMemo(() => {
-		return calculateAddonTotal(addons, allAddons, billingPeriod, currency);
+		return calculateAddonPricing(addons, allAddons, billingPeriod, currency);
 	}, [addons, allAddons, billingPeriod, currency]);
 
-	// Calculate subscription-level coupon discount (applies only to plan, not addons)
+	// ============================================================================
+	// DISCOUNT CALCULATIONS
+	// ============================================================================
+
+	// Calculate subscription-level coupon discount (applies only to plan after line-item discounts, not addons)
 	const subscriptionCouponDiscount = useMemo(() => {
 		if (coupons.length === 0) return 0;
 		return calculateTotalCouponDiscount(coupons, recurringTotal);
 	}, [coupons, recurringTotal]);
 
-	// Calculate plan subtotal after discounts (addons are separate)
+	// Calculate plan subtotal after all discounts (addons are separate)
 	const planSubtotalAfterDiscounts = useMemo(() => {
 		return Math.max(0, recurringTotal - subscriptionCouponDiscount);
 	}, [recurringTotal, subscriptionCouponDiscount]);
+
+	// ============================================================================
+	// TAX & FINAL CALCULATIONS
+	// ============================================================================
 
 	// Calculate total before tax (plan after discount + addons)
 	const totalBeforeTax = useMemo(() => {
 		return planSubtotalAfterDiscounts + addonTotal;
 	}, [planSubtotalAfterDiscounts, addonTotal]);
 
-	// Calculate tax amount (applied to plan after discount + addons)
+	// Calculate tax amount (applied to total: plan after discount + addons)
 	const taxAmount = useMemo(() => {
 		return calculateTaxAmount(totalBeforeTax, taxRateOverrides, currency);
 	}, [totalBeforeTax, taxRateOverrides, currency]);
@@ -231,6 +379,10 @@ const Preview = ({
 	const finalTotal = useMemo(() => {
 		return totalBeforeTax + taxAmount;
 	}, [totalBeforeTax, taxAmount]);
+
+	// ============================================================================
+	// TIMELINE GENERATION
+	// ============================================================================
 
 	const firstInvoiceDate = useMemo(() => {
 		return startDate ? calculateFirstInvoiceDate(startDate as Date, billingPeriod, billingCycle) : undefined;
@@ -255,76 +407,19 @@ const Preview = ({
 		const invoicePreview: PreviewTimelineItem = {
 			icon: <Receipt className='h-[22px] w-[22px] text-gray-500 shrink-0' />,
 			subtitle: (
-				<div>
-					<div className='space-y-1'>
-						{/* Plan Subtotal */}
-						<p className='text-sm text-gray-600'>
-							Plan: {getCurrencySymbol(currency || 'USD')}
-							{recurringTotal.toFixed(2)}
-						</p>
-
-						{/* Addons */}
-						{addonTotal > 0 && (
-							<>
-								<p className='text-sm text-gray-600'>
-									Addons: {getCurrencySymbol(currency || 'USD')}
-									{addonTotal.toFixed(2)}
-								</p>
-								{addonDetails.map((addon, index) => (
-									<p key={index} className='text-xs text-gray-500 ml-4'>
-										• {addon.name}: {getCurrencySymbol(currency || 'USD')}
-										{addon.amount.toFixed(2)}
-									</p>
-								))}
-							</>
-						)}
-
-						{/* Discounts */}
-						{totalCoupons > 0 && (
-							<>
-								{lineItemTotalDiscount > 0 && (
-									<p className='text-sm text-blue-600'>
-										Line-item discounts: -{getCurrencySymbol(currency || 'USD')}
-										{lineItemTotalDiscount.toFixed(2)}
-									</p>
-								)}
-								{subscriptionCouponDiscount > 0 && (
-									<p className='text-sm text-blue-600'>
-										Subscription discount: -{getCurrencySymbol(currency || 'USD')}
-										{subscriptionCouponDiscount.toFixed(2)}
-									</p>
-								)}
-							</>
-						)}
-
-						{/* Tax */}
-						{taxAmount > 0 && (
-							<p className='text-sm text-gray-600'>
-								Tax: {getCurrencySymbol(currency || 'USD')}
-								{taxAmount.toFixed(2)}
-							</p>
-						)}
-
-						{/* Final total */}
-						<p className='text-sm text-gray-900 font-semibold border-t border-gray-200 pt-1'>
-							Net payable: {getCurrencySymbol(currency || 'USD')}
-							{finalTotal.toFixed(2)}
-						</p>
-					</div>
-
-					{totalCoupons > 0 && (
-						<p className='text-xs text-gray-500 mt-2'>
-							{totalCoupons} coupon{totalCoupons > 1 ? 's' : ''} applied
-							{lineItemTotalDiscount > 0 && totalLineItemCoupons > 0 && (
-								<span className='ml-1'>
-									({totalLineItemCoupons} line-item, {coupons.length} subscription)
-								</span>
-							)}
-						</p>
-					)}
-
-					<p className='text-sm text-gray-600 mt-2'>{billingDescription}</p>
-				</div>
+				<InvoicePreview
+					planOriginalTotal={recurringOriginalTotal}
+					addonTotal={addonTotal}
+					addonDetails={addonDetails}
+					lineItemTotalDiscount={lineItemTotalDiscount}
+					subscriptionCouponDiscount={subscriptionCouponDiscount}
+					taxAmount={taxAmount}
+					finalTotal={finalTotal}
+					currency={currency}
+					billingDescription={billingDescription}
+					totalCoupons={totalCoupons}
+					totalLineItemCoupons={totalLineItemCoupons}
+				/>
 			),
 			label: `First invoice: ${firstInvoiceDate ? formatDate(firstInvoiceDate) : ''}`,
 		};
@@ -345,12 +440,9 @@ const Preview = ({
 	}, [
 		phases,
 		firstInvoiceDate,
-		recurringCharges,
-		usageCharges,
-		recurringTotal,
+		recurringOriginalTotal,
 		addonTotal,
 		addonDetails,
-		planSubtotalAfterDiscounts,
 		billingDescription,
 		coupons,
 		lineItemCoupons,

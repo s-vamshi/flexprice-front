@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { Coins, DollarSign, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import PriceUnitApi from '@/api/PriceUnitApi';
 import { PRICE_UNIT_TYPE } from '@/models/Price';
@@ -61,7 +61,7 @@ const CurrencySelector = ({
 
 		return priceUnitsData.items.map((unit) => ({
 			value: unit.code,
-			label: `${unit.name} (${unit.code})`,
+			label: `${unit.name} ( 1${unit.symbol} = ${unit.conversion_rate} ${unit.base_currency})`,
 			symbol: unit.symbol,
 			currencyType: PRICE_UNIT_TYPE.CUSTOM,
 			priceUnitId: unit.id,
@@ -78,7 +78,7 @@ const CurrencySelector = ({
 	const fiatCurrencyOptions = useMemo(() => {
 		return currencyOptions.map((currency) => ({
 			value: currency.value,
-			label: `${currency.label.toUpperCase()} (${currency.symbol})`,
+			label: `${currency.label.toUpperCase()}`,
 			symbol: currency.symbol,
 			currencyType: PRICE_UNIT_TYPE.FIAT,
 			extras: {
@@ -92,14 +92,12 @@ const CurrencySelector = ({
 		const fiatOptions: SelectOption[] = fiatCurrencyOptions.map((currency) => ({
 			value: currency.value,
 			label: currency.label,
-			prefixIcon: <DollarSign className='h-4 w-4 text-green-600' />,
 			extras: currency.extras,
 		}));
 
 		const customOptions: SelectOption[] = customCurrencyOptions.map((currency) => ({
 			value: currency.value,
 			label: currency.label,
-			prefixIcon: <Coins className='h-4 w-4 text-blue-600' />,
 			extras: currency.extras,
 		}));
 
@@ -115,7 +113,6 @@ const CurrencySelector = ({
 						...fiatCurrencyOptions.map((currency) => ({
 							value: currency.value,
 							label: currency.label,
-							prefixIcon: <DollarSign className='h-4 w-4 text-green-600' />,
 							extras: currency.extras,
 						})),
 					]
@@ -128,7 +125,6 @@ const CurrencySelector = ({
 						...customCurrencyOptions.map((currency) => ({
 							value: currency.value,
 							label: currency.label,
-							prefixIcon: <Coins className='h-4 w-4 text-blue-600' />,
 							extras: currency.extras,
 						})),
 					]

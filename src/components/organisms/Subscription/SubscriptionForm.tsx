@@ -702,6 +702,7 @@ const SubscriptionForm = ({
 			{state.selectedPlan && (
 				<div className='space-y-3 mt-4 pt-3 border-t border-gray-200'>
 					<SubscriptionAddonTable
+						currency={state.currency}
 						getEmptyAddon={getEmptyAddon}
 						data={state.addons || []}
 						onChange={(data) => {

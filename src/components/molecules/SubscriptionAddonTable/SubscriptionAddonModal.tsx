@@ -15,6 +15,7 @@ interface Props {
 	onSave: (addon: AddAddonToSubscriptionRequest) => void;
 	onCancel: () => void;
 	getEmptyAddon: () => Partial<AddAddonToSubscriptionRequest>;
+	currency?: string;
 }
 
 interface FormErrors {
@@ -22,7 +23,16 @@ interface FormErrors {
 	end_date?: string;
 }
 
-const SubscriptionAddonModal: React.FC<Props> = ({ data, currentAddons, isOpen, onOpenChange, onSave, onCancel, getEmptyAddon }) => {
+const SubscriptionAddonModal: React.FC<Props> = ({
+	data,
+	currentAddons,
+	isOpen,
+	onOpenChange,
+	onSave,
+	onCancel,
+	getEmptyAddon,
+	currency,
+}) => {
 	const [formData, setFormData] = useState<Partial<AddAddonToSubscriptionRequest>>({});
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [_, setSelectedAddonDetails] = useState<any>(null);
@@ -37,13 +47,23 @@ const SubscriptionAddonModal: React.FC<Props> = ({ data, currentAddons, isOpen, 
 		},
 	});
 
+	// Filter addons to only include those with prices matching the subscription currency
+	const filteredAddons = useMemo(() => {
+		if (!currency) return addons;
+
+		return addons.filter((addon) => {
+			// Check if addon has any prices with the matching currency
+			return addon.prices?.some((price) => price.currency.toLowerCase() === currency.toLowerCase());
+		});
+	}, [addons, currency]);
+
 	// Reset form when modal opens/closes
 	useEffect(() => {
 		if (isOpen) {
 			if (data) {
 				setFormData(data);
 				// Find addon details for editing
-				const addonDetails = addons.find((addon) => addon.id === data.addon_id);
+				const addonDetails = filteredAddons.find((addon) => addon.id === data.addon_id);
 				setSelectedAddonDetails(addonDetails);
 			} else {
 				setFormData(getEmptyAddon());
@@ -51,7 +71,7 @@ const SubscriptionAddonModal: React.FC<Props> = ({ data, currentAddons, isOpen, 
 			}
 			setErrors({});
 		}
-	}, [isOpen, data, getEmptyAddon, addons]);
+	}, [isOpen, data, getEmptyAddon, filteredAddons]);
 
 	const validateForm = useCallback((): { isValid: boolean; errors: FormErrors } => {
 		const newErrors: FormErrors = {};
@@ -105,7 +125,7 @@ const SubscriptionAddonModal: React.FC<Props> = ({ data, currentAddons, isOpen, 
 
 	const handleAddonSelect = useCallback(
 		(addonId: string) => {
-			const addonDetails = addons.find((addon) => addon.id === addonId);
+			const addonDetails = filteredAddons.find((addon) => addon.id === addonId);
 			setSelectedAddonDetails(addonDetails);
 			setFormData((prev) => ({ ...prev, addon_id: addonId }));
 			// Clear error for this field when user selects
@@ -113,7 +133,7 @@ const SubscriptionAddonModal: React.FC<Props> = ({ data, currentAddons, isOpen, 
 				setErrors((prev) => ({ ...prev, addon_id: undefined }));
 			}
 		},
-		[addons, errors.addon_id],
+		[filteredAddons, errors.addon_id],
 	);
 
 	// const handleDateChange = useCallback(
@@ -129,7 +149,7 @@ const SubscriptionAddonModal: React.FC<Props> = ({ data, currentAddons, isOpen, 
 
 	// Filter addon options based on current addons and addon type
 	const filteredAddonOptions = useMemo(() => {
-		return addons
+		return filteredAddons
 			.filter((addon) => {
 				// If editing, always include the current addon
 				if (data && data.addon_id === addon.id) {
@@ -150,7 +170,7 @@ const SubscriptionAddonModal: React.FC<Props> = ({ data, currentAddons, isOpen, 
 				value: addon.id,
 				description: `${toSentenceCase(addon.type)} - ${addon.description || 'No description'}`,
 			}));
-	}, [addons, currentAddons, data]);
+	}, [filteredAddons, currentAddons, data]);
 
 	return (
 		<Dialog

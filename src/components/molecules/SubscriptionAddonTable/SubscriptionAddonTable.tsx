@@ -18,6 +18,7 @@ interface Props {
 	getEmptyAddon: () => Partial<AddAddonToSubscriptionRequest>;
 	priceOverrides?: Record<string, string>;
 	coupons?: Coupon[];
+	currency?: string; // Add currency prop
 }
 const getAddonTypeChip = (type: string) => {
 	switch (type.toLowerCase()) {
@@ -30,11 +31,21 @@ const getAddonTypeChip = (type: string) => {
 	}
 };
 
-const formatAddonCharges = (prices: Price[] = [], priceOverrides: Record<string, string> = {}, coupons: Coupon[] = []): string => {
+const formatAddonCharges = (
+	prices: Price[] = [],
+	priceOverrides: Record<string, string> = {},
+	coupons: Coupon[] = [],
+	currency?: string,
+): string => {
 	if (!prices || prices.length === 0) return '--';
 
-	const recurringPrices = prices.filter((p) => p.type === PRICE_TYPE.FIXED);
-	const usagePrices = prices.filter((p) => p.type === PRICE_TYPE.USAGE);
+	// Filter prices by currency if currency is provided
+	const currencyFilteredPrices = currency ? prices.filter((p) => p.currency.toLowerCase() === currency.toLowerCase()) : prices;
+
+	if (currencyFilteredPrices.length === 0) return '--';
+
+	const recurringPrices = currencyFilteredPrices.filter((p) => p.type === PRICE_TYPE.FIXED);
+	const usagePrices = currencyFilteredPrices.filter((p) => p.type === PRICE_TYPE.USAGE);
 
 	const hasUsage = usagePrices.length > 0;
 
@@ -56,7 +67,15 @@ interface ExtendedAddon extends AddAddonToSubscriptionRequest {
 	internal_id: number;
 }
 
-const SubscriptionAddonTable: React.FC<Props> = ({ data, onChange, disabled, getEmptyAddon, priceOverrides = {}, coupons = [] }) => {
+const SubscriptionAddonTable: React.FC<Props> = ({
+	data,
+	onChange,
+	disabled,
+	getEmptyAddon,
+	priceOverrides = {},
+	coupons = [],
+	currency,
+}) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [selectedAddon, setSelectedAddon] = useState<ExtendedAddon | null>(null);
 	const extendedData = useMemo(() => {
@@ -76,12 +95,22 @@ const SubscriptionAddonTable: React.FC<Props> = ({ data, onChange, disabled, get
 		refetchOnWindowFocus: false,
 	});
 
+	// Filter addons to only include those with prices matching the subscription currency
+	const filteredAddons = useMemo(() => {
+		if (!currency) return addons;
+
+		return addons.filter((addon) => {
+			// Check if addon has any prices with the matching currency
+			return addon.prices?.some((price) => price.currency.toLowerCase() === currency.toLowerCase());
+		});
+	}, [addons, currency]);
+
 	const addonsById = useMemo(() => {
-		return addons.reduce<Record<string, (typeof addons)[number]>>((acc, addon) => {
+		return filteredAddons.reduce<Record<string, (typeof filteredAddons)[number]>>((acc, addon) => {
 			acc[addon.id] = addon;
 			return acc;
 		}, {});
-	}, [addons]);
+	}, [filteredAddons]);
 
 	const getAddonDetails = useCallback((addonId: string) => addonsById[addonId], [addonsById]);
 
@@ -146,7 +175,7 @@ const SubscriptionAddonTable: React.FC<Props> = ({ data, onChange, disabled, get
 				render: (row) => {
 					const addonDetails = getAddonDetails(row.addon_id);
 					const prices = addonDetails?.prices || [];
-					return <span>{formatAddonCharges(prices, priceOverrides, coupons)}</span>;
+					return <span>{formatAddonCharges(prices, priceOverrides, coupons, currency)}</span>;
 				},
 			},
 			// {
@@ -193,6 +222,7 @@ const SubscriptionAddonTable: React.FC<Props> = ({ data, onChange, disabled, get
 					setIsOpen(false);
 					setSelectedAddon(null);
 				}}
+				currency={currency}
 			/>
 			<div className='space-y-4'>
 				<div className='flex items-center justify-between'>

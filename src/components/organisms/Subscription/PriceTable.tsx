@@ -4,7 +4,7 @@ import { Price, BILLING_MODEL, PRICE_TYPE } from '@/models/Price';
 import { ChevronDownIcon, ChevronUpIcon, Pencil, EyeOff, RotateCcw, Tag } from 'lucide-react';
 import { FormHeader } from '@/components/atoms';
 import { motion } from 'framer-motion';
-import ChargeValueCell from '@/pages/product-catalog/plans/ChargeValueCell';
+import { CustomPricingChargeValueCell, RegularChargeValueCell } from '@/pages/product-catalog/plans/ChargeValueCell';
 import { capitalize } from 'es-toolkit';
 import { Coupon } from '@/models/Coupon';
 import { BsThreeDots } from 'react-icons/bs';
@@ -30,6 +30,7 @@ type ChargeTableData = {
 	invoice_cadence: string;
 	actions?: JSX.Element;
 	priceId: string;
+	priceUnit: JSX.Element;
 };
 
 const PriceTable: FC<Props> = ({
@@ -174,13 +175,20 @@ const PriceTable: FC<Props> = ({
 			),
 			quantity: price.type === PRICE_TYPE.FIXED ? '1' : 'pay as you go',
 			price: (
-				<ChargeValueCell
+				<RegularChargeValueCell
 					data={{ ...price, currency: price.currency } as any}
 					overriddenAmount={isOverridden ? overriddenPrices[price.id] : undefined}
 					appliedCoupon={appliedCoupon}
 				/>
 			),
 			invoice_cadence: price.invoice_cadence,
+			priceUnit: (
+				<CustomPricingChargeValueCell
+					data={{ ...price, currency: price.currency } as any}
+					overriddenAmount={isOverridden ? overriddenPrices[price.id] : undefined}
+					appliedCoupon={appliedCoupon}
+				/>
+			),
 			actions: <PriceActionMenu price={price} />,
 		};
 	});
@@ -203,6 +211,10 @@ const PriceTable: FC<Props> = ({
 		{
 			fieldName: 'price',
 			title: 'Price',
+		},
+		{
+			title: 'Price Unit',
+			fieldName: 'priceUnit',
 		},
 		{
 			fieldName: 'actions',

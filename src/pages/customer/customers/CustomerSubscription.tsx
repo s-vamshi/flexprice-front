@@ -11,7 +11,6 @@ import { ExpandedPlan } from '@/types/plan';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import AddonApi from '@/api/AddonApi';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ApiDocsContent } from '@/components/molecules';
 import { refetchQueries } from '@/core/services/tanstack/ReactQueryProvider';
@@ -116,22 +115,6 @@ const useSubscriptionData = (subscription_id: string | undefined) => {
 	});
 };
 
-// Hook to fetch addons data
-const useAddons = (addonIds: string[] = []) => {
-	return useQuery({
-		queryKey: ['addons', addonIds],
-		queryFn: async () => {
-			if (!addonIds.length) return { items: [] };
-			const response = await AddonApi.ListAddon({
-				addon_ids: addonIds,
-				expand: 'prices,entitlements',
-			});
-			return response;
-		},
-		enabled: addonIds.length > 0,
-	});
-};
-
 const CustomerSubscription: React.FC = () => {
 	const { id: customerId, subscription_id } = useParams<Params>();
 	const navigate = useNavigate();
@@ -193,51 +176,16 @@ const CustomerSubscription: React.FC = () => {
 	const { data: customerData } = useCustomerData(customerId);
 	const { data: subscriptionData } = useSubscriptionData(subscription_id);
 
-	// Get addon IDs from subscription state
-	const addonIds = useMemo(() => subscriptionState.addons?.map((addon) => addon.addon_id) || [], [subscriptionState.addons]);
-	const { data: addons } = useAddons(addonIds);
-
-	// Helper function to count addon ID occurrences
-	const getAddonCounts = useMemo(() => {
-		const counts = new Map<string, number>();
-		subscriptionState.addons?.forEach((addon) => {
-			counts.set(addon.addon_id, (counts.get(addon.addon_id) || 0) + 1);
-		});
-		return counts;
-	}, [subscriptionState.addons]);
-
-	// Memoized function to get combined prices from subscription and addons
-	const getPrices = useMemo(() => {
-		const subscriptionPrices =
+	// Get plan prices only (excluding addons)
+	const getPlanPrices = useMemo(() => {
+		return (
 			subscriptionState.prices?.prices?.filter(
 				(price) =>
 					price.billing_period.toLowerCase() === subscriptionState.billingPeriod.toLowerCase() &&
 					price.currency.toLowerCase() === subscriptionState.currency.toLowerCase(),
-			) || [];
-
-		// Get matching addon prices and create unique instances for each count
-		const addonPrices =
-			addons?.items?.flatMap((addon) => {
-				const count = getAddonCounts.get(addon.id) || 0;
-				const matchingPrices =
-					addon.prices?.filter(
-						(price) =>
-							price.billing_period.toLowerCase() === subscriptionState.billingPeriod.toLowerCase() &&
-							price.currency.toLowerCase() === subscriptionState.currency.toLowerCase(),
-					) || [];
-
-				// Create unique instances for each count with unique IDs
-				return Array.from({ length: count }, (_, index) =>
-					matchingPrices.map((price) => ({
-						...price,
-						// Append instance index to make price ID unique for each instance
-						id: `${price.id}_instance_${index}`,
-					})),
-				).flat();
-			}) || [];
-
-		return [...subscriptionPrices, ...addonPrices];
-	}, [subscriptionState.prices, subscriptionState.billingPeriod, subscriptionState.currency, addons, getAddonCounts]);
+			) || []
+		);
+	}, [subscriptionState.prices, subscriptionState.billingPeriod, subscriptionState.currency]);
 
 	// Coupons are handled in SubscriptionForm
 
@@ -464,7 +412,7 @@ const CustomerSubscription: React.FC = () => {
 				<div className='sticky top-6'>
 					{showPreview && (
 						<Preview
-							data={getPrices}
+							data={getPlanPrices}
 							selectedPlan={subscriptionState.prices}
 							phases={subscriptionState.phases}
 							coupons={subscriptionState.linkedCoupon ? [subscriptionState.linkedCoupon] : []}

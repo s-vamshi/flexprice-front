@@ -1,15 +1,17 @@
-import { Button, DatePicker, Input, Select } from '@/components/atoms';
-import { currencyOptions } from '@/constants/constants';
+import { Button, DatePicker, Input } from '@/components/atoms';
+import { CurrencySelector } from '@/components/molecules';
 import { refetchQueries } from '@/core/services/tanstack/ReactQueryProvider';
 import { cn } from '@/lib/utils';
 import { Wallet } from '@/models/Wallet';
+import { PRICE_UNIT_TYPE } from '@/models/Price';
 import WalletApi from '@/api/WalletApi';
-import { getCurrencySymbol, getConversionRateDescription } from '@/utils/common/helper_functions';
+import { getCurrencySymbol } from '@/utils/common/helper_functions';
 import { useMutation } from '@tanstack/react-query';
 import { FC, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CreateWalletPayload } from '@/types/dto';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CurrencyOption } from '@/components/molecules/CurrencySelector';
 
 interface Props {
 	customerId: string;
@@ -32,6 +34,9 @@ const CreateWallet: FC<Props> = ({ customerId, onSuccess = () => {}, open, onOpe
 		conversion_rate: 1,
 		name: 'Prepaid Wallet',
 	});
+
+	const [selectedCurrencyOption, setSelectedCurrencyOption] = useState<CurrencyOption | undefined>();
+	const [selectedCurrency, setSelectedCurrency] = useState<string>('');
 
 	// const [autoTopup, setautoTopup] = useState(false);
 
@@ -74,6 +79,27 @@ const CreateWallet: FC<Props> = ({ customerId, onSuccess = () => {}, open, onOpe
 		return wallet.id;
 	};
 
+	const handleCurrencyChange = (value: string, option?: CurrencyOption) => {
+		setSelectedCurrencyOption(option);
+		setSelectedCurrency(value);
+
+		// If custom pricing unit is selected, use its base currency for wallet payload
+		if (option?.currencyType === PRICE_UNIT_TYPE.CUSTOM && option.extras?.baseCurrency) {
+			setwalletPayload((prev) => ({
+				...prev,
+				currency: option.extras!.baseCurrency, // Use base currency for wallet payload
+				conversion_rate: option.extras!.conversionRate,
+			}));
+		} else {
+			// For fiat currencies, use the selected currency directly
+			setwalletPayload((prev) => ({
+				...prev,
+				currency: value,
+				conversion_rate: 1,
+			}));
+		}
+	};
+
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className='bg-white sm:max-w-[600px] max-h-[80vh] overflow-y-auto'>
@@ -90,11 +116,10 @@ const CreateWallet: FC<Props> = ({ customerId, onSuccess = () => {}, open, onOpe
 						placeholder='Enter wallet name'
 					/>
 
-					<Select
-						value={walletPayload.currency}
-						options={currencyOptions}
+					<CurrencySelector
+						value={selectedCurrency}
 						label='Select Currency'
-						onChange={(e) => setwalletPayload({ ...walletPayload, currency: e })}
+						onChange={handleCurrencyChange}
 						placeholder='Select Currency'
 						error={errors.currency}
 					/>
@@ -110,15 +135,19 @@ const CreateWallet: FC<Props> = ({ customerId, onSuccess = () => {}, open, onOpe
 								suffix={getCurrencySymbol(walletPayload.currency || '')}
 								value={walletPayload.conversion_rate}
 								onChange={(e) => {
-									setwalletPayload({ ...walletPayload, conversion_rate: e as unknown as number });
+									// Only allow editing if it's a fiat currency (not custom pricing unit)
+									if (selectedCurrencyOption?.currencyType !== PRICE_UNIT_TYPE.CUSTOM) {
+										setwalletPayload({ ...walletPayload, conversion_rate: e as unknown as number });
+									}
 								}}
-								description={
-									walletPayload.conversion_rate && walletPayload.currency
-										? getConversionRateDescription(walletPayload.conversion_rate, 'CREDIT', walletPayload.currency)
-										: undefined
-								}
+								disabled={selectedCurrencyOption?.currencyType === PRICE_UNIT_TYPE.CUSTOM}
 							/>
 						</div>
+						{selectedCurrencyOption?.currencyType === PRICE_UNIT_TYPE.CUSTOM && (
+							<p className='text-sm text-muted-foreground'>
+								Conversion rate is locked for custom pricing units. Wallet will use {walletPayload.currency} as base currency.
+							</p>
+						)}
 					</div>
 					<Input
 						label='Free Credits'
