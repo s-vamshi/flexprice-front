@@ -1,23 +1,27 @@
 import { FC } from 'react';
 import { cn } from '@/lib/utils';
 import { RiDeleteBin6Line } from 'react-icons/ri';
-import { Input, Spacer } from '@/components/atoms';
+import { Input, Spacer, DecimalUsageInput } from '@/components/atoms';
 import { getCurrencySymbol } from '@/utils/common/helper_functions';
 import { PriceTier } from './UsagePricingForm';
 import { AddChargesButton } from './SetupChargesSection';
+import { TIER_MODE } from '@/models/Price';
 
 interface Props {
 	tieredPrices: PriceTier[];
 	setTieredPrices: React.Dispatch<React.SetStateAction<PriceTier[]>>;
 	currency?: string;
+	tierMode?: TIER_MODE;
 }
 
 const formatNumber = (value: string): number | null => {
 	if (value.trim() === '') {
 		return null;
 	}
-	const numericString = value.replace(/[^0-9]/g, '');
-	return parseInt(numericString, 10);
+	// Support decimal values for tier boundaries
+	const numericString = value.replace(/[^0-9.]/g, '');
+	const numValue = parseFloat(numericString);
+	return isNaN(numValue) ? null : numValue;
 };
 
 const validateDecimal = (value: string): boolean => {
@@ -39,7 +43,7 @@ const VolumeTieredPricingForm: FC<Props> = ({ setTieredPrices, tieredPrices, cur
 			const newFrom = lastTier.up_to ?? lastTier.from + 1;
 
 			const newTier = {
-				from: newFrom + 1,
+				from: newFrom,
 				up_to: null,
 				unit_amount: '',
 				flat_amount: '0',
@@ -74,13 +78,13 @@ const VolumeTieredPricingForm: FC<Props> = ({ setTieredPrices, tieredPrices, cur
 				if (key === 'up_to' && index < prev.length - 1) {
 					// If 'up_to' is updated, adjust the 'from' value of the next tier
 					const nextTier = updatedTiers[index + 1];
-					nextTier.from = newValue + 1;
+					nextTier.from = newValue;
 				}
 
 				if (key === 'from' && index > 0) {
 					// If 'from' is updated, adjust the 'up_to' value of the previous tier
 					const previousTier = updatedTiers[index - 1];
-					previousTier.up_to = newValue - 1;
+					previousTier.up_to = newValue;
 				}
 			} else {
 				updatedTiers[index] = { ...updatedTiers[index], [key]: '' };
@@ -109,12 +113,13 @@ const VolumeTieredPricingForm: FC<Props> = ({ setTieredPrices, tieredPrices, cur
 	return (
 		<div className='space-y-4'>
 			<Spacer height='16px' />
+
 			<div className={cn('w-full', tieredPrices.length > 0 ? '' : 'hidden')}>
 				<table className='table-auto w-full border-collapse border border-gray-200 overflow-x-auto'>
 					<thead>
 						<tr className='bg-gray-100 text-left border-b'>
-							<th className='px-4 py-2 font-normal bg-white text-nowrap text-[#71717A]'>First unit</th>
-							<th className='px-4 py-2 font-normal bg-white text-nowrap text-[#71717A]'>Last unit</th>
+							<th className='px-4 py-2 font-normal bg-white text-nowrap text-[#71717A]'>From {'(>)'}</th>
+							<th className='px-4 py-2 font-normal bg-white text-nowrap text-[#71717A]'>Up to {'(<=)'}</th>
 							<th className='px-4 py-2 font-normal bg-white text-nowrap text-[#71717A]'>{`Per unit price `}</th>
 							<th className='px-4 py-2 font-normal bg-white text-nowrap text-[#71717A]'>Flat fee </th>
 							<th className='px-4 py-2 font-normal bg-white text-nowrap text-[#71717A]'></th>
@@ -132,11 +137,14 @@ const VolumeTieredPricingForm: FC<Props> = ({ setTieredPrices, tieredPrices, cur
 									/>
 								</td>
 								<td className='px-4 py-2'>
-									<Input
-										className='h-9'
+									<DecimalUsageInput
+										label=''
+										value={tier.up_to === null ? '∞' : tier.up_to.toString()}
 										onChange={(e) => updateTier(index, 'up_to', e)}
 										disabled={tier.up_to === null}
-										value={tier.up_to === null ? '∞' : tier.up_to.toString()}
+										precision={3}
+										min={0}
+										placeholder='∞'
 									/>
 								</td>
 								<td className='px-4 py-2'>

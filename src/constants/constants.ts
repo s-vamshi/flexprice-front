@@ -77,7 +77,8 @@ export const creditGrantPeriodOptions = [
 export const billingModelOptions = [
 	{ label: 'Flat Fee', value: BILLING_MODEL.FLAT_FEE },
 	{ label: 'Package', value: BILLING_MODEL.PACKAGE },
-	{ label: 'Tiered', value: BILLING_MODEL.TIERED },
+	{ label: 'Volume Tiered', value: BILLING_MODEL.TIERED },
+	{ label: 'Slab Tiered', value: 'SLAB_TIERED' }, // Maps to TIERED with SLAB tier_mode
 ];
 
 export const priceTypeOptions = [

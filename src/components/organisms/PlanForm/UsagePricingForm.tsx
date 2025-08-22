@@ -42,6 +42,7 @@ const billingModels: SelectOption[] = [
 	{ value: 'FLAT_FEE', label: 'Flat Fee' },
 	{ value: 'PACKAGE', label: 'Package' },
 	{ value: 'TIERED', label: 'Volume Tiered' },
+	{ value: 'SLAB_TIERED', label: 'Slab Tiered' }, // Maps to TIERED with SLAB tier_mode
 ];
 
 const UsagePricingForm: FC<Props> = ({
@@ -58,8 +59,8 @@ const UsagePricingForm: FC<Props> = ({
 	const [meterId, setMeterId] = useState<string>(price.meter_id || '');
 	const [activeMeter, setActiveMeter] = useState<Meter | null>(price.meter || null);
 	const [tieredPrices, setTieredPrices] = useState<PriceTier[]>([
-		{ from: 1, up_to: 1, unit_amount: '', flat_amount: '0' },
-		{ from: 2, up_to: null, unit_amount: '', flat_amount: '0' },
+		{ from: 0, up_to: 1, unit_amount: '', flat_amount: '0' },
+		{ from: 1, up_to: null, unit_amount: '', flat_amount: '0' },
 	]);
 	const [billingPeriod, setBillingPeriod] = useState(price.billing_period || billlingPeriodOptions[1].value);
 	const [flatFee, setFlatFee] = useState<string>(price.amount || '');
@@ -108,10 +109,16 @@ const UsagePricingForm: FC<Props> = ({
 						flat_amount: tier.flat_amount,
 					})),
 				);
+
+				// Set the appropriate billing model based on tier_mode
+				if (price.tier_mode === TIER_MODE.SLAB) {
+					setBillingModel(billingModels[3].value); // SLAB_TIERED
+				} else {
+					setBillingModel(billingModels[2].value); // Volume Tiered (default)
+				}
 			}
 		}
 	}, [price]);
-
 	const validate = () => {
 		setErrors({});
 		setInputErrors({
@@ -127,7 +134,7 @@ const UsagePricingForm: FC<Props> = ({
 		}
 
 		// Tiered pricing validation
-		if (billingModel === billingModels[2].value) {
+		if (billingModel === billingModels[2].value || billingModel === billingModels[3].value) {
 			// Check if tiers are provided
 			if (tieredPrices.length === 0) {
 				setInputErrors((prev) => ({
@@ -152,14 +159,14 @@ const UsagePricingForm: FC<Props> = ({
 					return false;
 				}
 
-				// Validate unit amount is a valid decimal and greater than 0
+				// Validate unit amount is a valid decimal and greater than or equal to 0
 				const unitAmount = parseFloat(tier.unit_amount);
-				if (isNaN(unitAmount) || unitAmount <= 0) {
+				if (isNaN(unitAmount) || unitAmount < 0) {
 					setInputErrors((prev) => ({
 						...prev,
-						tieredModelError: `Unit amount must be greater than 0 for tier ${i + 1}`,
+						tieredModelError: `Unit amount must be greater than or equal to 0 for tier ${i + 1}`,
 					}));
-					toast.error(`Unit amount must be greater than 0 for tier ${i + 1}`);
+					toast.error(`Unit amount must be greater than or equal to 0 for tier ${i + 1}`);
 					return false;
 				}
 
@@ -184,19 +191,6 @@ const UsagePricingForm: FC<Props> = ({
 							tieredModelError: `From value cannot be greater than up to in tier ${i + 1}`,
 						}));
 						toast.error(`From value cannot be greater than up to in tier ${i + 1}`);
-						return false;
-					}
-				}
-
-				// Check for overlapping tiers (except for the last tier which can have up_to as null)
-				if (i < tieredPrices.length - 1 && tier.up_to !== null) {
-					const nextTier = tieredPrices[i + 1];
-					if (tier.up_to >= nextTier.from) {
-						setInputErrors((prev) => ({
-							...prev,
-							tieredModelError: `Tier ${i + 1} overlaps with tier ${i + 2}`,
-						}));
-						toast.error(`Tier ${i + 1} overlaps with tier ${i + 2}`);
 						return false;
 					}
 				}
@@ -282,28 +276,21 @@ const UsagePricingForm: FC<Props> = ({
 					divide_by: Number(packagedFee.unit),
 				},
 			};
-		} else {
-			const adjustedTiers = tieredPrices.map((tier, index, array) => {
-				if (!tier.up_to && index < array.length - 1) {
-					const nextTier = array[index + 1];
-					return {
-						...tier,
-						up_to: nextTier?.up_to ? nextTier.up_to - 1 : null,
-					};
-				}
-				return tier;
-			});
-
+		} else if (billingModel === billingModels[2].value || billingModel === billingModels[3].value) {
 			finalPrice = {
 				...basePrice,
-				tiers: adjustedTiers.map((tier) => ({
+				billing_model: BILLING_MODEL.TIERED,
+				tiers: tieredPrices.map((tier) => ({
 					from: tier.from,
 					up_to: tier.up_to ?? null,
 					unit_amount: tier.unit_amount || '0',
 					flat_amount: tier.flat_amount || '0',
 				})) as unknown as NonNullable<Price['tiers']>,
-				tier_mode: TIER_MODE.VOLUME,
+				tier_mode: billingModel === billingModels[2].value ? TIER_MODE.VOLUME : TIER_MODE.SLAB,
 			};
+		} else {
+			// Default case - should not happen with current billing models
+			finalPrice = basePrice;
 		}
 		// If we're editing an existing price, preserve its ID and other important fields
 		if (price.internal_state === 'edit') {
@@ -437,9 +424,14 @@ const UsagePricingForm: FC<Props> = ({
 				</div>
 			)}
 
-			{billingModel === billingModels[2].value && (
+			{(billingModel === billingModels[2].value || billingModel === billingModels[3].value) && (
 				<div className='space-y-2'>
-					<VolumeTieredPricingForm setTieredPrices={setTieredPrices} tieredPrices={tieredPrices} currency={currency} />
+					<VolumeTieredPricingForm
+						setTieredPrices={setTieredPrices}
+						tieredPrices={tieredPrices}
+						currency={currency}
+						tierMode={billingModel === billingModels[2].value ? TIER_MODE.VOLUME : TIER_MODE.SLAB}
+					/>
 					{inputErrors.tieredModelError && <p className='text-red-500 text-sm'>{inputErrors.tieredModelError}</p>}
 				</div>
 			)}
