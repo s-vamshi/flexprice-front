@@ -5,39 +5,17 @@ import toast from 'react-hot-toast';
 import CustomerApi from '@/api/CustomerApi';
 import Customer from '@/models/Customer';
 import { CreateCustomerRequest, UpdateCustomerRequest } from '@/types/dto/Customer';
-import { Plus, LinkIcon } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Country, State, City, IState } from 'country-state-city';
 import { z } from 'zod';
 import { refetchQueries } from '@/core/services/tanstack/ReactQueryProvider';
 import { logger } from '@/utils/common/Logger';
-import { useUser } from '@/hooks/UserContext';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 
 interface Props {
 	data?: Customer;
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
 	trigger?: React.ReactNode;
-}
-
-// Type for stored connections
-interface StoredConnection {
-	id: string;
-	provider: string;
-	name: string;
-	code: string;
-	apiKey: string;
-}
-
-// Helper to get storage key
-const getStorageKey = (userId: string) => `connections_${userId}`;
-
-// Helper to mask sensitive information
-function maskCode(code: string) {
-	if (!code) return '********';
-	if (code.length <= 8) return '*'.repeat(code.length);
-	return code.slice(0, 4) + '*'.repeat(4) + code.slice(-4);
 }
 
 const CreateCustomerDrawer: FC<Props> = ({ data, onOpenChange, open, trigger }) => {
@@ -47,22 +25,6 @@ const CreateCustomerDrawer: FC<Props> = ({ data, onOpenChange, open, trigger }) 
 	const [internalOpen, setInternalOpen] = useState(false);
 	const isControlled = open !== undefined && onOpenChange !== undefined;
 	const [showBillingDetails, setShowBillingDetails] = useState(false);
-
-	// Connection linking
-	const [linkConnection, setLinkConnection] = useState(false);
-	const [selectedConnection, setSelectedConnection] = useState<string>('');
-	const [availableConnections, setAvailableConnections] = useState<StoredConnection[]>([]);
-	const { user } = useUser();
-
-	// Load available connections from localStorage
-	useEffect(() => {
-		if (!user?.id) return;
-		const key = getStorageKey(user.id);
-		const allConnections = JSON.parse(localStorage.getItem(key) || '[]');
-		// Filter only Stripe connections
-		const stripeConnections = allConnections.filter((c: StoredConnection) => c.provider === 'stripe');
-		setAvailableConnections(stripeConnections);
-	}, [user]);
 
 	const handleChange = (name: keyof typeof formData, value: string | undefined) => {
 		setFormData((prev) => ({ ...prev, [name]: value }));
@@ -112,12 +74,6 @@ const CreateCustomerDrawer: FC<Props> = ({ data, onOpenChange, open, trigger }) 
 				}))
 			: [];
 
-	// Connection options for the dropdown
-	const connectionOptions: SelectOption[] = availableConnections.map((connection) => ({
-		label: `${connection.name} (${maskCode(connection.code)})`,
-		value: connection.id,
-	}));
-
 	useEffect(() => {
 		if (!isEdit) {
 			setFormData((prev) => ({ ...prev, external_id: `cust-${prev.name?.toLowerCase().replace(/\s/g, '-') || ''}` }));
@@ -162,12 +118,6 @@ const CreateCustomerDrawer: FC<Props> = ({ data, onOpenChange, open, trigger }) 
 				newErrors[field] = error.message;
 			});
 			setErrors(newErrors);
-			return false;
-		}
-
-		// Custom validation for connection
-		if (linkConnection && !selectedConnection) {
-			setErrors((prev) => ({ ...prev, connection: 'Please select a connection' }));
 			return false;
 		}
 
@@ -250,7 +200,7 @@ const CreateCustomerDrawer: FC<Props> = ({ data, onOpenChange, open, trigger }) 
 		}
 	};
 
-	const isCtaDisabled = !formData.name || !formData.external_id || (linkConnection && !selectedConnection);
+	const isCtaDisabled = !formData.name || !formData.external_id;
 
 	return (
 		<div>
@@ -290,41 +240,6 @@ const CreateCustomerDrawer: FC<Props> = ({ data, onOpenChange, open, trigger }) 
 								onChange={(e) => handleChange('email', e)}
 								error={errors.email}
 							/>
-						</div>
-					</div>
-
-					{/* Payment integration section */}
-					<div className='relative card !p-4 !mb-6'>
-						<span className='absolute -top-4 left-2 text-[#18181B] text-sm bg-white font-medium px-2 py-1'>Payment Integration</span>
-						<div className='space-y-4'>
-							<div className='flex items-center justify-between'>
-								<div className='flex items-center space-x-2'>
-									<LinkIcon className='h-4 w-4 text-muted-foreground' />
-									<Label htmlFor='link-payment' className='text-sm font-medium'>
-										Link Stripe Payment Account
-									</Label>
-								</div>
-								<Switch id='link-payment' checked={linkConnection} onCheckedChange={setLinkConnection} />
-							</div>
-
-							{linkConnection && (
-								<div className='space-y-2'>
-									{availableConnections.length === 0 ? (
-										<div className='text-sm text-amber-600 p-2 bg-amber-50 rounded-md'>
-											No Stripe connections available. Please add a connection in the Integrations section first.
-										</div>
-									) : (
-										<Select
-											label='Select Stripe Connection'
-											placeholder='Choose a payment connection'
-											options={connectionOptions}
-											value={selectedConnection}
-											onChange={setSelectedConnection}
-											description='This will link the customer to your Stripe account'
-										/>
-									)}
-								</div>
-							)}
 						</div>
 					</div>
 

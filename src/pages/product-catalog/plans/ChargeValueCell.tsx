@@ -82,7 +82,7 @@ const ChargeValueCell = ({ data, overriddenAmount, appliedCoupon }: Props) => {
 							className='bg-white border border-gray-200 shadow-lg text-sm text-gray-900 px-4 py-3 rounded-lg max-w-[320px]'>
 							<div className='space-y-3'>
 								<div className='font-medium border-b border-spacing-1 border-gray-200 pb-2 text-base text-gray-900'>
-									{data.tier_mode === TIER_MODE.VOLUME ? 'Volume Pricing' : 'Slab Pricing'}
+									{data.tier_mode === TIER_MODE.VOLUME ? 'Volume' : 'Slab'} Tier Pricing
 								</div>
 								<div className='space-y-2 '>
 									{tiers.map((tier, index) => (

@@ -39,10 +39,26 @@ interface TieredPrice {
 
 // TODO: Remove disabled once the feature is released
 const billingModels: SelectOption[] = [
-	{ value: 'FLAT_FEE', label: 'Flat Fee' },
-	{ value: 'PACKAGE', label: 'Package' },
-	{ value: 'TIERED', label: 'Volume Tiered' },
-	{ value: 'SLAB_TIERED', label: 'Slab Tiered' }, // Maps to TIERED with SLAB tier_mode
+	{
+		value: BILLING_MODEL.FLAT_FEE,
+		label: 'Flat Fee',
+		description: 'Charge a fixed amount for each unit of usage.',
+	},
+	{
+		value: BILLING_MODEL.PACKAGE,
+		label: 'Package',
+		description: 'Charge by package, bundle or group of units.',
+	},
+	{
+		value: BILLING_MODEL.TIERED,
+		label: 'Volume Tiered',
+		description: 'All units price based on final tier reached.',
+	},
+	{
+		value: 'SLAB_TIERED',
+		label: 'Slab Tiered',
+		description: 'Tiers apply progressively as quantity increases.',
+	}, // Maps to TIERED with SLAB tier_mode
 ];
 
 const UsagePricingForm: FC<Props> = ({
