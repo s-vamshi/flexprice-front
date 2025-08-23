@@ -22,6 +22,7 @@ import { ApiDocsContent, ColumnData, FlexpriceTable, RedirectCell } from '@/comp
 import { FEATURE_TYPE } from '@/models/Feature';
 import { BaseEntityStatus } from '@/types/common/BaseEntity';
 import { formatMeterUsageResetPeriodToDisplay } from '@/types/formatters/Feature';
+import { ENTITLEMENT_ENTITY_TYPE } from '@/models/Entitlement';
 
 // Local utilities
 import { formatAggregationType } from './AddFeature';
@@ -36,6 +37,8 @@ import ChargeValueCell from '@/pages/product-catalog/plans/ChargeValueCell';
 import { PriceApi } from '@/api/PriceApi';
 import { formatBillingPeriodForDisplay, getPriceTypeLabel } from '@/utils/common/helper_functions';
 import { formatInvoiceCadence } from '@/pages/product-catalog/plans/PlanDetailsPage';
+import { generateExpandParams } from '@/utils/common/api_helper';
+import { EXPAND } from '@/models/expand';
 
 const priceColumns: ColumnData<Price>[] = [
 	{
@@ -79,7 +82,7 @@ const FeatureDetails = () => {
 		queryFn: async () =>
 			await EntitlementApi.getAllEntitlements({
 				feature_ids: [featureId!],
-				expand: 'plans,features,prices,addons',
+				expand: generateExpandParams([EXPAND.PLANS, EXPAND.FEATURES, EXPAND.PRICES, EXPAND.ADDONS]),
 				status: BaseEntityStatus.PUBLISHED,
 			}),
 		enabled: !!featureId,
@@ -93,6 +96,15 @@ const FeatureDetails = () => {
 			}),
 		enabled: !!data?.meter?.id,
 	});
+
+	// Filter entitlements locally for plans and addons
+	const linkedPlans = useMemo(() => {
+		return linkedEntitlements?.items?.filter((entitlement) => entitlement.entity_type === ENTITLEMENT_ENTITY_TYPE.PLAN) || [];
+	}, [linkedEntitlements]);
+
+	const linkedAddons = useMemo(() => {
+		return linkedEntitlements?.items?.filter((entitlement) => entitlement.entity_type === ENTITLEMENT_ENTITY_TYPE.ADDON) || [];
+	}, [linkedEntitlements]);
 
 	const { mutate: archiveFeature, isPending: isArchiving } = useMutation({
 		mutationFn: async () => await FeatureApi.deleteFeature(featureId!),
@@ -114,15 +126,22 @@ const FeatureDetails = () => {
 
 	const columns: ColumnData<EntitlementResponse>[] = [
 		{
-			title: 'Plan',
+			title: 'Name',
 			render: (rowData) => {
-				return <RedirectCell redirectUrl={`${RouteNames.plan}/${rowData?.entity_id}`}>{rowData?.plan?.name}</RedirectCell>;
+				const name = rowData.entity_type === ENTITLEMENT_ENTITY_TYPE.PLAN ? rowData?.plan?.name : rowData?.addon?.name;
+				const entityId = rowData.entity_id;
+				const redirectUrl =
+					rowData.entity_type === ENTITLEMENT_ENTITY_TYPE.PLAN
+						? `${RouteNames.plan}/${entityId}`
+						: `${RouteNames.addonDetails}/${entityId}`;
+				return <RedirectCell redirectUrl={redirectUrl}>{name}</RedirectCell>;
 			},
 		},
 		{
 			title: 'Status',
 			render: (rowData) => {
-				const label = formatChips(rowData?.plan?.status || '');
+				const status = rowData.entity_type === ENTITLEMENT_ENTITY_TYPE.PLAN ? rowData?.plan?.status : rowData?.addon?.status;
+				const label = formatChips(status || '');
 				return <Chip variant={label === 'Active' ? 'success' : 'default'} label={label} />;
 			},
 		},
@@ -234,13 +253,24 @@ const FeatureDetails = () => {
 					</div>
 				)}
 
-				{(linkedEntitlements?.items?.length || 0) > 0 ? (
+				{/* Linked Plans Table */}
+				{linkedPlans.length > 0 ? (
 					<Card variant='notched'>
 						<CardHeader title='Linked Plans' />
-						<FlexpriceTable showEmptyRow columns={columns} data={linkedEntitlements?.items ?? []} variant='no-bordered' />
+						<FlexpriceTable showEmptyRow columns={columns} data={linkedPlans} variant='no-bordered' />
 					</Card>
 				) : (
 					<NoDataCard title='Linked Plans' subtitle='No plans linked to the feature yet' />
+				)}
+
+				{/* Linked Addons Table */}
+				{linkedAddons.length > 0 ? (
+					<Card variant='notched'>
+						<CardHeader title='Linked Addons' />
+						<FlexpriceTable showEmptyRow columns={columns} data={linkedAddons} variant='no-bordered' />
+					</Card>
+				) : (
+					<NoDataCard title='Linked Addons' subtitle='No addons linked to the feature yet' />
 				)}
 
 				{data?.type === FEATURE_TYPE.METERED && (

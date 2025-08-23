@@ -1,3 +1,5 @@
+import { EXPAND } from '@/models/expand';
+
 export const generateQueryParams = (baseUrl: string, params: Record<string, any>): string => {
 	const queryParams = Object.keys(params)
 		.filter((key) => key && params[key] !== undefined && params[key] !== null)
@@ -8,4 +10,11 @@ export const generateQueryParams = (baseUrl: string, params: Record<string, any>
 		.join('&');
 
 	return queryParams ? `${baseUrl}?${queryParams}` : baseUrl;
+};
+
+export const generateExpandParams = (values: EXPAND[]): string => {
+	if (!values || values.length === 0) {
+		return '';
+	}
+	return values.join(',');
 };

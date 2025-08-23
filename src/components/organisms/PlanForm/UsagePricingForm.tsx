@@ -455,6 +455,7 @@ const UsagePricingForm: FC<Props> = ({
 			<Spacer height='16px' />
 			{/* !TODO: Remove disabled once the feature is released */}
 			<CheckboxRadioGroup
+				className='hidden'
 				title='Billing timing'
 				value={invoiceCadence}
 				checkboxItems={[
@@ -475,7 +476,6 @@ const UsagePricingForm: FC<Props> = ({
 				}}
 				error={inputErrors.invoiceCadenceError}
 			/>
-			<Spacer height={'16px'} />
 			<Spacer height='16px' />
 			<div className='flex justify-end'>
 				<Button onClick={handleCancel} variant='secondary' className='mr-4 text-zinc-900'>

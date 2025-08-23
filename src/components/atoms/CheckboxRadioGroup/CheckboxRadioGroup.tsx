@@ -17,11 +17,12 @@ export interface Props {
 	value?: string;
 	title?: string;
 	error?: string;
+	className?: string;
 }
 
-const CheckboxRadioGroup: FC<Props> = ({ error, checkboxItems, defaultValue, onChange, title, value }) => {
+const CheckboxRadioGroup: FC<Props> = ({ error, checkboxItems, defaultValue, onChange, title, value, className }) => {
 	return (
-		<div>
+		<div className={className}>
 			{title && <p className='text-sm text-zinc-950 font-medium  mb-2'>{title}</p>}
 			<RadioGroup defaultValue={defaultValue} value={value}>
 				{checkboxItems.map((item) => (
