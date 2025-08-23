@@ -79,7 +79,7 @@ const FeatureDetails = () => {
 		queryFn: async () =>
 			await EntitlementApi.getAllEntitlements({
 				feature_ids: [featureId!],
-				expand: 'plans,features,prices',
+				expand: 'plans,features,prices,addons',
 				status: BaseEntityStatus.PUBLISHED,
 			}),
 		enabled: !!featureId,

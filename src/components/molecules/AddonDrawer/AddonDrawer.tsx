@@ -129,7 +129,6 @@ const AddonDrawer: FC<Props> = ({ data, open, onOpenChange, trigger, refetchQuer
 				value={formData.type}
 				onChange={(value) => setFormData({ ...formData, type: value as ADDON_TYPE })}
 				options={addonTypeOptions}
-				className='hidden'
 				placeholder='Select addon type'
 				description='Choose whether this addon can be used once or multiple times.'
 			/>

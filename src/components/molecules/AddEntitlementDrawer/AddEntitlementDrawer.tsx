@@ -202,6 +202,7 @@ const AddEntitlementDrawer: FC<Props> = ({
 			handleDrawerClose(false);
 			refetchQueries(['fetchPlan', planId || '']);
 			refetchQueries(['fetchEntitlements', planId || '']);
+			refetchQueries(['fetchAddon', entityId || '']);
 		},
 		onError: (error: ServerError) => {
 			toast.error(error.error.message || 'Failed to add entitlements. Please try again.');
