@@ -12,11 +12,21 @@ export interface Entitlement extends BaseModel {
 	readonly static_value: string;
 	readonly tenant_id: string;
 	readonly usage_limit: number | null;
-	readonly usage_reset_period: string | null;
+	readonly usage_reset_period: ENTITLEMENT_USAGE_RESET_PERIOD | null;
 }
 
 export enum ENTITLEMENT_ENTITY_TYPE {
 	PLAN = 'PLAN',
 	ADDON = 'ADDON',
 	FEATURE = 'FEATURE',
+}
+
+export enum ENTITLEMENT_USAGE_RESET_PERIOD {
+	MONTHLY = 'MONTHLY',
+	ANNUAL = 'ANNUAL',
+	WEEKLY = 'WEEKLY',
+	DAILY = 'DAILY',
+	QUARTER = 'QUARTERLY',
+	HALF_YEAR = 'HALF_YEARLY',
+	NEVER = 'NEVER',
 }

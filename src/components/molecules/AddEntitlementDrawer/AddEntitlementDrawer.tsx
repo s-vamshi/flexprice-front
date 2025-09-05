@@ -2,9 +2,8 @@ import { Button, Checkbox, FormHeader, Input, Select, SelectFeature, Sheet, Spac
 import { getFeatureIcon } from '@/components/atoms/SelectFeature/SelectFeature';
 import { AddChargesButton } from '@/components/organisms/PlanForm/SetupChargesSection';
 
-import { BILLING_PERIOD } from '@/constants/constants';
 import { refetchQueries } from '@/core/services/tanstack/ReactQueryProvider';
-import { Entitlement, ENTITLEMENT_ENTITY_TYPE } from '@/models/Entitlement';
+import { Entitlement, ENTITLEMENT_ENTITY_TYPE, ENTITLEMENT_USAGE_RESET_PERIOD } from '@/models/Entitlement';
 import Feature, { FEATURE_TYPE } from '@/models/Feature';
 import { METER_USAGE_RESET_PERIOD } from '@/models/Meter';
 import EntitlementApi from '@/api/EntitlementApi';
@@ -35,8 +34,9 @@ interface ValidationErrors {
 
 // TODO: remove this after we ship the reset usage feature and use billlingPeriodOptions from constants.ts
 const billlingPeriodOptions = [
-	{ label: 'Daily', value: BILLING_PERIOD.DAILY },
-	{ label: 'Monthly', value: BILLING_PERIOD.MONTHLY },
+	{ label: 'Daily', value: ENTITLEMENT_USAGE_RESET_PERIOD.DAILY },
+	{ label: 'Monthly', value: ENTITLEMENT_USAGE_RESET_PERIOD.MONTHLY },
+	{ label: 'Never', value: ENTITLEMENT_USAGE_RESET_PERIOD.NEVER },
 ];
 
 const AddEntitlementDrawer: FC<Props> = ({
@@ -120,7 +120,7 @@ const AddEntitlementDrawer: FC<Props> = ({
 		// If user sets to infinite, don't require usage reset period
 		// If reset is NEVER, usage reset period is not applicable
 		if (!isInfinite && !isResetNever) {
-			if (!tempEntitlement.usage_reset_period || tempEntitlement.usage_reset_period === '') {
+			if (!tempEntitlement.usage_reset_period) {
 				newErrors.usage_reset_period = 'Usage reset period is required';
 			}
 		}
@@ -383,7 +383,7 @@ const AddEntitlementDrawer: FC<Props> = ({
 										onChange={(value) => {
 											setEntitlement({
 												...tempEntitlement,
-												usage_reset_period: value,
+												usage_reset_period: value as ENTITLEMENT_USAGE_RESET_PERIOD,
 											});
 										}}
 									/>
