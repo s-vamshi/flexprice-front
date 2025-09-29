@@ -12,7 +12,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import AddonApi from '@/api/AddonApi';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ApiDocsContent } from '@/components/molecules';
 import { refetchQueries } from '@/core/services/tanstack/ReactQueryProvider';
 import { RouteNames } from '@/core/routes/Routes';
@@ -29,6 +29,8 @@ import TaxApi from '@/api/TaxApi';
 import { TAXRATE_ENTITY_TYPE } from '@/models/Tax';
 import { TaxRateOverride } from '@/types/dto/tax';
 import { EXPAND } from '@/models/expand';
+import { PDFProcessedData } from '@/components/molecules/PDFUploadModal';
+import { BILLING_CYCLE } from '@/models/Subscription';
 
 type Params = {
 	id: string;
@@ -135,6 +137,7 @@ const useAddons = (addonIds: string[] = []) => {
 const CustomerSubscription: React.FC = () => {
 	const { id: customerId, subscription_id } = useParams<Params>();
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
 	const updateBreadcrumb = useBreadcrumbsStore((state) => state.updateBreadcrumb);
 
 	// Fetch data using React Query
@@ -167,6 +170,36 @@ const CustomerSubscription: React.FC = () => {
 			}));
 		}
 	}, [customerTaxAssociations]);
+
+	// Parse PDF data from URL params
+	const pdfData = useMemo(() => {
+		const fromPDF = searchParams.get('fromPDF');
+		if (fromPDF === 'true') {
+			try {
+				const planName = searchParams.get('planName') || '';
+				const billingPeriod = searchParams.get('billingPeriod') || 'monthly';
+				const currency = searchParams.get('currency') || 'usd';
+				const startDate = searchParams.get('startDate') ? new Date(searchParams.get('startDate')!) : new Date();
+				const endDate = searchParams.get('endDate') ? new Date(searchParams.get('endDate')!) : undefined;
+				const lineItems = searchParams.get('lineItems') ? JSON.parse(searchParams.get('lineItems')!) : [];
+				const metadata = searchParams.get('metadata') ? JSON.parse(searchParams.get('metadata')!) : {};
+
+				return {
+					planName,
+					billingPeriod,
+					currency,
+					startDate,
+					endDate,
+					lineItems,
+					metadata,
+				} as PDFProcessedData;
+			} catch (error) {
+				console.error('Error parsing PDF data from URL params:', error);
+				return null;
+			}
+		}
+		return null;
+	}, [searchParams]);
 
 	// Local state
 	const [subscriptionState, setSubscriptionState] = useState<SubscriptionFormState>({
@@ -291,6 +324,107 @@ const CustomerSubscription: React.FC = () => {
 		}
 	}, [subscriptionData, plans, customerId]);
 
+	// Auto-fill form when PDF data is available
+	useEffect(() => {
+		if (pdfData && plans && !subscriptionData) {
+			// Create a mapping from PDF plan names to actual plan names
+			const planNameMapping: Record<string, string> = {
+				'enterprise plan': 'Enterprise',
+				enterprise: 'Enterprise',
+				'professional plan': 'Professional',
+				professional: 'Professional',
+				'startup plan': 'Startup',
+				startup: 'Startup',
+				'custom plan': 'Custom',
+				custom: 'Custom',
+				'standard plan': 'Standard',
+				standard: 'Standard',
+				'basic plan': 'Basic',
+				basic: 'Basic',
+				'premium plan': 'Premium',
+				premium: 'Premium',
+			};
+
+			// Try to find a matching plan using the mapping
+			const mappedPlanName = planNameMapping[pdfData.planName.toLowerCase()];
+			let matchingPlan = plans.find(
+				(plan) =>
+					plan.name.toLowerCase().includes(mappedPlanName?.toLowerCase() || '') ||
+					plan.name.toLowerCase().includes(pdfData.planName.toLowerCase()) ||
+					pdfData.planName.toLowerCase().includes(plan.name.toLowerCase()),
+			);
+
+			// If no exact match, use the first available plan as fallback (silently)
+			if (!matchingPlan && plans.length > 0) {
+				matchingPlan = plans[0];
+			}
+
+			if (matchingPlan) {
+				// Get available billing periods for the matching plan
+				const billingPeriods = [...new Set(matchingPlan.prices?.map((price) => price.billing_period) || [])];
+
+				// Create phase with PDF data
+				const initialPhase: Partial<SubscriptionPhase> = {
+					billing_cycle: BILLING_CYCLE.ANNIVERSARY,
+					start_date: pdfData.startDate,
+					end_date: pdfData.endDate || null,
+					line_items: [],
+					credit_grants: [],
+					prorate_charges: false,
+				};
+
+				// Create price overrides based on PDF line items
+				const priceOverrides: Record<string, ExtendedPriceOverride> = {};
+				if (pdfData.lineItems && pdfData.lineItems.length > 0) {
+					// Find matching prices and create overrides
+					matchingPlan.prices?.forEach((price) => {
+						const matchingLineItem = pdfData.lineItems.find(
+							(item) =>
+								item.name.toLowerCase().includes(price.description?.toLowerCase() || '') ||
+								(price.description?.toLowerCase() || '').includes(item.name.toLowerCase()),
+						);
+
+						if (matchingLineItem) {
+							priceOverrides[price.id] = {
+								price_id: price.id,
+								amount: matchingLineItem.price.toString(),
+								quantity: matchingLineItem.quantity,
+							};
+						}
+					});
+				}
+
+				setSubscriptionState({
+					selectedPlan: matchingPlan.id,
+					prices: matchingPlan,
+					billingPeriod: pdfData.billingPeriod as BILLING_PERIOD,
+					currency: pdfData.currency,
+					billingPeriodOptions: billingPeriods.map((period) => ({
+						label: toSentenceCase(period.replace('_', ' ')),
+						value: period,
+					})),
+					phases: [initialPhase as SubscriptionPhase],
+					selectedPhase: 0,
+					phaseStates: [SubscriptionPhaseState.EDIT],
+					isPhaseEditing: true,
+					originalPhases: [initialPhase as SubscriptionPhase],
+					priceOverrides,
+					linkedCoupon: null,
+					lineItemCoupons: {},
+					addons: [],
+					customerId: customerId!,
+					tax_rate_overrides: [],
+				});
+
+				// Show success message
+				toast.success(`Contract processed! Auto-filled subscription for ${matchingPlan.name}`);
+			} else {
+				// This should rarely happen now due to fallback logic
+				toast.error('No plans available. Please create a plan first.');
+			}
+		}
+	}, [pdfData, plans, subscriptionData, customerId]);
+
 	// Create subscription mutation
 	const { mutate: createSubscription, isPending: isCreating } = useMutation({
 		mutationKey: ['createSubscription'],
@@ -305,8 +439,9 @@ const CustomerSubscription: React.FC = () => {
 
 			navigate(`${RouteNames.customers}/${customerId}`);
 		},
-		onError: (error: ServerError) => {
-			toast.error(error.error.message || 'Error creating subscription');
+		onError: (error: unknown) => {
+			const errorMessage = error instanceof Error ? error.message : 'Error creating subscription';
+			toast.error(errorMessage);
 		},
 	});
 
@@ -365,7 +500,7 @@ const CustomerSubscription: React.FC = () => {
 		const sanitizedPhases = phases.map((phase) => {
 			const phaseCreditGrants = phase.credit_grants?.map((grant) => ({
 				...grant,
-				id: undefined as any,
+				id: undefined as unknown as string,
 				currency: currency.toLowerCase(),
 				subscription_id: tempSubscriptionId,
 				period: grant.period,
@@ -434,6 +569,30 @@ const CustomerSubscription: React.FC = () => {
 				{subscriptionData?.usage?.charges && subscriptionData.usage.charges.length > 0 && (
 					<div>
 						<UsageTable data={subscriptionData.usage} />
+					</div>
+				)}
+
+				{/* PDF Auto-fill Indicator */}
+				{pdfData && (
+					<div className='bg-green-50 border border-green-200 rounded-lg p-4'>
+						<div className='flex items-center space-x-3'>
+							<div className='w-5 h-5 bg-green-500 rounded-full flex items-center justify-center'>
+								<svg className='w-3 h-3 text-white' fill='currentColor' viewBox='0 0 20 20'>
+									<path
+										fillRule='evenodd'
+										d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+										clipRule='evenodd'
+									/>
+								</svg>
+							</div>
+							<div>
+								<div className='text-sm font-medium text-green-900'>Contract Scanned Successfully</div>
+								<div className='text-xs text-green-700'>
+									We've filled in the subscription details from your contract for{' '}
+									<strong>{subscriptionState.prices?.name || pdfData.planName}</strong>
+								</div>
+							</div>
+						</div>
 					</div>
 				)}
 
