@@ -45,6 +45,7 @@ export interface PDFProcessedData {
 	endDate?: Date;
 	lineItems: LineItem[];
 	metadata: ContractMetadata;
+	pdfFileUrl?: string; // Simple file URL for PDF
 }
 
 export interface ContractScenario {

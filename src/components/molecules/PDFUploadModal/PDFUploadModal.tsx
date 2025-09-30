@@ -142,12 +142,21 @@ const PDFUploadModal: React.FC<PDFUploadModalProps> = ({ isOpen, onOpenChange, o
 			// Process the PDF based on file name
 			const processedData = simulatePDFProcessing(uploadedFile.name);
 
+			// Create a simple file URL for the PDF
+			const pdfFileUrl = URL.createObjectURL(uploadedFile);
+
+			// Add the file URL to the processed data
+			const processedDataWithUrl = {
+				...processedData,
+				pdfFileUrl,
+			};
+
 			// Brief success state before closing
 			setProcessingStatus(ProcessingStatus.SUCCESS);
 			await new Promise((resolve) => setTimeout(resolve, 500));
 
 			// Pass the processed data to parent
-			onPDFProcessed(processedData);
+			onPDFProcessed(processedDataWithUrl);
 
 			// Close modal immediately after processing
 			onOpenChange(false);
@@ -271,13 +280,9 @@ const PDFUploadModal: React.FC<PDFUploadModalProps> = ({ isOpen, onOpenChange, o
 							{/* AI Processing Animation */}
 							<div className='relative'>
 								<div className='w-16 h-16 mx-auto rounded-full bg-[#F4F4F5] flex items-center justify-center'>
-									<div className='w-8 h-8 border-3 border-[#09090B] border-t-transparent rounded-full animate-spin' />
-								</div>
-								<div className='absolute -top-1 -right-1 w-6 h-6 bg-[#377E6A] rounded-full flex items-center justify-center'>
-									<CheckCircle className='w-4 h-4 text-white' />
+									<div className='w-8 h-8 border-2 border-[#09090B] border-t-transparent rounded-full animate-spin' />
 								</div>
 							</div>
-
 							<div>
 								<div className='text-lg font-semibold text-[#09090B] mb-1'>Analyzing your contract</div>
 								<div className='text-sm text-[#71717A] mb-4'>{currentStep || 'Getting started...'}</div>

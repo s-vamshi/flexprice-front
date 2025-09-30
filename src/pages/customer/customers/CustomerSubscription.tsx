@@ -30,6 +30,7 @@ import { TAXRATE_ENTITY_TYPE } from '@/models/Tax';
 import { TaxRateOverride } from '@/types/dto/tax';
 import { EXPAND } from '@/models/expand';
 import { PDFProcessedData } from '@/components/molecules/PDFUploadModal';
+import { PDFViewerModal } from '@/components/molecules/PDFViewerModal';
 import { BILLING_CYCLE } from '@/models/Subscription';
 
 type Params = {
@@ -171,31 +172,28 @@ const CustomerSubscription: React.FC = () => {
 		}
 	}, [customerTaxAssociations]);
 
-	// Parse PDF data from URL params
+	// Parse PDF data from sessionStorage
 	const pdfData = useMemo(() => {
 		const fromPDF = searchParams.get('fromPDF');
 		if (fromPDF === 'true') {
 			try {
-				const planName = searchParams.get('planName') || '';
-				const billingPeriod = searchParams.get('billingPeriod') || 'monthly';
-				const currency = searchParams.get('currency') || 'usd';
-				const startDate = searchParams.get('startDate') ? new Date(searchParams.get('startDate')!) : new Date();
-				const endDate = searchParams.get('endDate') ? new Date(searchParams.get('endDate')!) : undefined;
-				const lineItems = searchParams.get('lineItems') ? JSON.parse(searchParams.get('lineItems')!) : [];
-				const metadata = searchParams.get('metadata') ? JSON.parse(searchParams.get('metadata')!) : {};
-
-				return {
-					planName,
-					billingPeriod,
-					currency,
-					startDate,
-					endDate,
-					lineItems,
-					metadata,
-				} as PDFProcessedData;
+				const pdfDataKey = searchParams.get('pdfDataKey');
+				if (pdfDataKey) {
+					const storedData = sessionStorage.getItem(pdfDataKey);
+					if (storedData) {
+						const parsedData = JSON.parse(storedData);
+						// Convert date strings back to Date objects
+						const pdfData: PDFProcessedData = {
+							...parsedData,
+							startDate: new Date(parsedData.startDate),
+							endDate: parsedData.endDate ? new Date(parsedData.endDate) : undefined,
+						};
+						console.log('Retrieved PDF data from sessionStorage:', pdfData);
+						return pdfData;
+					}
+				}
 			} catch (error) {
-				console.error('Error parsing PDF data from URL params:', error);
-				return null;
+				console.error('Error parsing PDF data from sessionStorage:', error);
 			}
 		}
 		return null;
@@ -220,6 +218,9 @@ const CustomerSubscription: React.FC = () => {
 		customerId: customerId!,
 		tax_rate_overrides: [],
 	});
+
+	// PDF Modal state
+	const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
 
 	// Fetch data using React Query
 	const { data: plans, isLoading: plansLoading, isError: plansError } = usePlans();
@@ -560,6 +561,15 @@ const CustomerSubscription: React.FC = () => {
 
 	const navigateBack = () => navigate(`${RouteNames.customers}/${customerId}`);
 
+	const handleViewPDF = () => {
+		if (pdfData?.pdfFileUrl) {
+			console.log('Opening PDF modal with file URL:', pdfData.pdfFileUrl);
+			setIsPDFModalOpen(true);
+		} else {
+			console.error('No PDF file URL available');
+		}
+	};
+
 	const showPreview = subscriptionState.selectedPlan && !subscriptionData?.usage;
 
 	return (
@@ -575,23 +585,43 @@ const CustomerSubscription: React.FC = () => {
 				{/* PDF Auto-fill Indicator */}
 				{pdfData && (
 					<div className='bg-green-50 border border-green-200 rounded-lg p-4'>
-						<div className='flex items-center space-x-3'>
-							<div className='w-5 h-5 bg-green-500 rounded-full flex items-center justify-center'>
-								<svg className='w-3 h-3 text-white' fill='currentColor' viewBox='0 0 20 20'>
-									<path
-										fillRule='evenodd'
-										d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
-										clipRule='evenodd'
-									/>
-								</svg>
-							</div>
-							<div>
-								<div className='text-sm font-medium text-green-900'>Contract Scanned Successfully</div>
-								<div className='text-xs text-green-700'>
-									We've filled in the subscription details from your contract for{' '}
-									<strong>{subscriptionState.prices?.name || pdfData.planName}</strong>
+						<div className='flex items-center justify-between'>
+							<div className='flex items-center space-x-3'>
+								<div className='w-5 h-5 bg-green-500 rounded-full flex items-center justify-center'>
+									<svg className='w-3 h-3 text-white' fill='currentColor' viewBox='0 0 20 20'>
+										<path
+											fillRule='evenodd'
+											d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
+											clipRule='evenodd'
+										/>
+									</svg>
+								</div>
+								<div>
+									<div className='text-sm font-medium text-green-900'>Contract Scanned Successfully</div>
+									<div className='text-xs text-green-700'>
+										We've filled in the subscription details from your contract for{' '}
+										<strong>{subscriptionState.prices?.name || pdfData.planName}</strong>
+									</div>
 								</div>
 							</div>
+							{pdfData?.pdfFileUrl && (
+								<Button
+									onClick={handleViewPDF}
+									variant='outline'
+									size='sm'
+									className='text-green-700 border-green-300 hover:bg-green-100 hover:border-green-400'>
+									<svg className='w-4 h-4 mr-2' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+										<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' />
+										<path
+											strokeLinecap='round'
+											strokeLinejoin='round'
+											strokeWidth={2}
+											d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'
+										/>
+									</svg>
+									View PDF
+								</Button>
+							)}
 						</div>
 					</div>
 				)}
@@ -635,6 +665,11 @@ const CustomerSubscription: React.FC = () => {
 					)}
 				</div>
 			</div>
+
+			{/* PDF Viewer Modal */}
+			{pdfData?.pdfFileUrl && (
+				<PDFViewerModal isOpen={isPDFModalOpen} onOpenChange={setIsPDFModalOpen} pdfUrl={pdfData.pdfFileUrl} title='Contract PDF' />
+			)}
 		</div>
 	);
 };
