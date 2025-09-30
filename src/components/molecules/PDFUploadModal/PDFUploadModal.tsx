@@ -277,12 +277,6 @@ const PDFUploadModal: React.FC<PDFUploadModalProps> = ({ isOpen, onOpenChange, o
 				{processingStatus === ProcessingStatus.PROCESSING && (
 					<div className='bg-gradient-to-r from-[#F4F4F5] to-[#F9F9F9] border border-[#E4E4E7] rounded-xl p-6'>
 						<div className='text-center space-y-4'>
-							{/* AI Processing Animation */}
-							<div className='relative'>
-								<div className='w-16 h-16 mx-auto rounded-full bg-[#F4F4F5] flex items-center justify-center'>
-									<div className='w-8 h-8 border-2 border-[#09090B] border-t-transparent rounded-full animate-spin' />
-								</div>
-							</div>
 							<div>
 								<div className='text-lg font-semibold text-[#09090B] mb-1'>Analyzing your contract</div>
 								<div className='text-sm text-[#71717A] mb-4'>{currentStep || 'Getting started...'}</div>
