@@ -36,16 +36,14 @@ const Overview = () => {
 	};
 
 	const handlePDFProcessed = (pdfData: PDFProcessedData) => {
-		// Navigate to subscription creation with PDF data
+		// Store PDF data in sessionStorage for simple access
+		const pdfDataKey = `pdf_data_${Date.now()}`;
+		sessionStorage.setItem(pdfDataKey, JSON.stringify(pdfData));
+
+		// Navigate to subscription creation with PDF data key
 		const queryParams = new URLSearchParams({
 			fromPDF: 'true',
-			planName: pdfData.planName,
-			billingPeriod: pdfData.billingPeriod,
-			currency: pdfData.currency,
-			startDate: pdfData.startDate.toISOString(),
-			...(pdfData.endDate && { endDate: pdfData.endDate.toISOString() }),
-			lineItems: JSON.stringify(pdfData.lineItems),
-			metadata: JSON.stringify(pdfData.metadata),
+			pdfDataKey: pdfDataKey,
 		});
 
 		navigate(`${RouteNames.customers}/${customerId}/add-subscription?${queryParams.toString()}`);
