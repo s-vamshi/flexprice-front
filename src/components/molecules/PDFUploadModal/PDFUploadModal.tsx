@@ -281,7 +281,6 @@ const PDFUploadModal: React.FC<PDFUploadModalProps> = ({ isOpen, onOpenChange, o
 								<div className='text-lg font-semibold text-[#09090B] mb-1'>Analyzing your contract</div>
 								<div className='text-sm text-[#71717A] mb-4'>{currentStep || 'Getting started...'}</div>
 
-								{/* Modern Progress Bar */}
 								<div className='w-full bg-[#F4F4F5] rounded-full h-2 mb-2'>
 									<div
 										className='bg-gradient-to-r from-[#09090B] to-[#71717A] h-2 rounded-full transition-all duration-500 ease-out'
