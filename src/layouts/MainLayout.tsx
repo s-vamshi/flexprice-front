@@ -58,6 +58,7 @@ const MainLayout: React.FC = () => {
 					<Outlet />
 					<DebugMenu />
 				</main>
+				<p>__APP_VERSION__: {__APP_VERSION__}</p>
 			</SidebarInset>
 		</SidebarProvider>
 	);
