@@ -7,24 +7,26 @@ import ReactQueryProvider from './core/services/tanstack/ReactQueryProvider';
 import { useEffect } from 'react';
 
 const App = () => {
+	const currentVersion = __APP_VERSION__;
 	useEffect(() => {
-		const currentVersion = __APP_VERSION__;
-		const refreshIfNewBuild = () => {
-			fetch(`/meta.json?t=${Date.now()}`, { cache: 'no-cache' })
-				.then((res) => res.json())
-				.then((meta) => {
-					const latestVersion = meta.versionId;
-					if (latestVersion !== currentVersion) {
-						console.log('New version detected', latestVersion, currentVersion);
-						if ('caches' in window) {
-							caches.keys().then((keys) => keys.forEach((key) => caches.delete(key)));
-						}
-						window.location.reload();
-					} else {
-						console.log('No updates');
-					}
-				})
-				.catch((err) => console.error('Error checking version', err));
+		const refreshIfNewBuild = async () => {
+			try {
+				const res = await fetch(`/meta.json?t=${Date.now()}`, { cache: 'no-cache' });
+				if (!res.ok) {
+					throw new Error(`HTTP error! status: ${res.status}`);
+				}
+				const meta = await res.json();
+				const latestVersion = meta.versionId;
+				const timestamp = new Date().toISOString();
+				if (latestVersion !== currentVersion) {
+					console.info(`[VersionCheck][${timestamp}] New version detected. Current: ${currentVersion}, Latest: ${latestVersion}`);
+					window.location.reload();
+				} else {
+					console.debug(`[VersionCheck][${timestamp}] App is up-to-date. Version: ${currentVersion}`);
+				}
+			} catch (err) {
+				console.error('Error checking version', err);
+			}
 		};
 
 		refreshIfNewBuild();
