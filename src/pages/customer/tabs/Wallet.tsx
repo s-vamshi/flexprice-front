@@ -202,7 +202,6 @@ const WalletTab = () => {
 			<MetadataModal
 				open={showMetadataModal}
 				data={metadata}
-				onChange={() => {}}
 				onSave={async (newMetadata) => {
 					if (!activeWallet?.id) return;
 					try {

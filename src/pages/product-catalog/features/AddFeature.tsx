@@ -143,6 +143,7 @@ const BUCKET_SIZE_OPTIONS: SelectOption[] = [
 const FEATURE_SCHEMA = z.object({
 	name: z.string().nonempty('Feature name is required'),
 	description: z.string().optional(),
+	lookup_key: z.string().optional(),
 	type: z.enum([FEATURE_TYPE.BOOLEAN, FEATURE_TYPE.METERED, FEATURE_TYPE.STATIC]).optional(),
 	meter_id: z.string().optional(),
 	unit_singular: z.string().optional(),
@@ -327,6 +328,16 @@ const FeatureDetailsSection = ({
 				value={data.name || ''}
 				error={errors.name}
 				onChange={handleNameChange}
+			/>
+
+			<Spacer height='16px' />
+
+			<Input
+				label='Lookup Key'
+				placeholder='Enter a unique lookup key (optional)'
+				value={data.lookup_key || ''}
+				error={errors.lookup_key}
+				onChange={(lookup_key) => onUpdateFeature({ lookup_key })}
 			/>
 
 			<Spacer height='16px' />
@@ -631,6 +642,7 @@ const AddFeaturePage = () => {
 			const sanitizedData: CreateFeatureRequest = {
 				name: featureData.name!,
 				description: featureData.description,
+				lookup_key: featureData.lookup_key,
 				type: featureData.type!,
 				meter: meterRequest,
 				metadata: featureData.metadata,

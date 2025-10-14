@@ -171,7 +171,6 @@ const CustomerInformation = () => {
 					<MetadataModal
 						open={showMetadataModal}
 						data={metadata}
-						onChange={() => {}}
 						onSave={async (newMetadata) => {
 							if (!customerId) return;
 							try {

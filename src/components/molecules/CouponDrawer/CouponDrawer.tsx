@@ -278,7 +278,7 @@ const CouponDrawer: FC<Props> = ({ data, open, onOpenChange, trigger, refetchQue
 						const metadata = e ? JSON.parse(e) : undefined;
 						setFormData({ ...formData, metadata });
 					} catch (error) {
-						// Handle invalid JSON
+						setErrors({ ...errors, metadata: 'Invalid Metadata' });
 					}
 				}}
 				className='min-h-[100px]'

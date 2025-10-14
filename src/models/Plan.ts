@@ -1,4 +1,4 @@
-import { BaseModel } from './base';
+import { BaseModel, Metadata } from './base';
 import { Entitlement } from './Entitlement';
 import { Price } from './Price';
 import { CreditGrant } from './CreditGrant';
@@ -10,4 +10,5 @@ export interface Plan extends BaseModel {
 	readonly entitlements: Entitlement[];
 	readonly prices: Price[];
 	readonly credit_grants: CreditGrant[];
+	readonly metadata?: Metadata;
 }

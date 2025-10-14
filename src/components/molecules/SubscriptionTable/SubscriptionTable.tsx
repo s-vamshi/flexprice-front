@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { RouteNames } from '@/core/routes/Routes';
 import SubscriptionApi from '@/api/SubscriptionApi';
 import RedirectCell from '../Table/RedirectCell';
+import { Trash2 } from 'lucide-react';
 
 interface Props {
 	data: Subscription[];
@@ -70,9 +71,11 @@ const SubscriptionTable: FC<Props> = ({ data, onEdit }) => {
 			render: (row) => (
 				<ActionButton
 					isArchiveDisabled={row.subscription_status === SUBSCRIPTION_STATUS.CANCELLED}
-					isEditDisabled={row.subscription_status === SUBSCRIPTION_STATUS.CANCELLED}
 					entityName='Subscription'
+					isEditDisabled={true}
 					refetchQueryKey='fetchSubscriptions'
+					archiveText='Cancel'
+					archiveIcon={<Trash2 />}
 					deleteMutationFn={(id) =>
 						SubscriptionApi.cancelSubscription(id, {
 							cancellation_type: SUBSCRIPTION_CANCELLATION_TYPE.IMMEDIATE,

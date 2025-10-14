@@ -4,6 +4,7 @@ import { Meter } from './Meter';
 export interface Feature extends BaseModel {
 	readonly name: string;
 	readonly description: string;
+	readonly lookup_key?: string;
 	readonly meter_id: string;
 	readonly metadata: Metadata;
 	readonly type: FEATURE_TYPE;

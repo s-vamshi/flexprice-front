@@ -76,6 +76,10 @@ const SubscriptionTable: FC<SubscriptionTableProps> = ({ data, onRowClick, allow
 			title: 'Start Date',
 			render: (row) => <span>{formatDate(row.start_date)}</span>,
 		},
+		{
+			title: 'Renewal Date',
+			render: (row) => <span>{formatDate(row.current_period_end)}</span>,
+		},
 		...(allowRedirect
 			? [
 					{

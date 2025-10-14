@@ -7,6 +7,7 @@ import {
 	RedirectCell,
 	PlanDrawer,
 	CreditGrantModal,
+	MetadataModal,
 } from '@/components/molecules';
 import { DetailsCard } from '@/components/molecules';
 import { RouteNames } from '@/core/routes/Routes';
@@ -40,6 +41,7 @@ import CreditGrantApi from '@/api/CreditGrantApi';
 import { ENTITLEMENT_ENTITY_TYPE } from '@/models/Entitlement';
 import { EntitlementResponse } from '@/types/dto';
 import { PlanPriceTable } from '@/components/organisms';
+import { Plan } from '@/models';
 
 const creditGrantColumns: ColumnData<CreditGrant>[] = [
 	{
@@ -114,6 +116,8 @@ const PlanDetailsPage = () => {
 	const [drawerOpen, setdrawerOpen] = useState(false);
 	const [planDrawerOpen, setPlanDrawerOpen] = useState(false);
 	const [creditGrantModalOpen, setCreditGrantModalOpen] = useState(false);
+	const [metadataModalOpen, setMetadataModalOpen] = useState(false);
+	const [metadata, setMetadata] = useState<Record<string, string>>({});
 	const [newCreditGrants, setNewCreditGrants] = useState<CreditGrant[]>([]);
 	const queryClient = useQueryClient();
 
@@ -166,6 +170,20 @@ const PlanDetailsPage = () => {
 		},
 	});
 
+	const { mutate: updatePlanMetadata } = useMutation({
+		mutationFn: async (data: Record<string, string>) => {
+			return await PlanApi.updatePlan(planId!, { metadata: data });
+		},
+		onSuccess: () => {
+			toast.success('Metadata updated successfully');
+			setMetadataModalOpen(false);
+			queryClient.invalidateQueries({ queryKey: ['fetchPlan', planId] });
+		},
+		onError: (error: ServerError) => {
+			toast.error(error.error.message || 'Failed to update metadata');
+		},
+	});
+
 	const { updateBreadcrumb } = useBreadcrumbsStore();
 
 	useEffect(() => {
@@ -173,6 +191,14 @@ const PlanDetailsPage = () => {
 			updateBreadcrumb(2, planData.name);
 		}
 	}, [planData, updateBreadcrumb]);
+
+	useEffect(() => {
+		if (planData?.metadata) {
+			setMetadata(planData.metadata);
+		} else {
+			setMetadata({});
+		}
+	}, [planData?.metadata]);
 
 	const columnData: ColumnData<EntitlementResponse>[] = [
 		{
@@ -310,7 +336,8 @@ const PlanDetailsPage = () => {
 				onCancel={handleCancelCreditGrant}
 				getEmptyCreditGrant={getEmptyCreditGrant}
 			/>
-			<PlanDrawer data={planData as any} open={planDrawerOpen} onOpenChange={setPlanDrawerOpen} refetchQueryKeys={['fetchPlan']} />
+			<MetadataModal open={metadataModalOpen} data={metadata} onSave={updatePlanMetadata} onClose={() => setMetadataModalOpen(false)} />
+			<PlanDrawer data={planData as Plan} open={planDrawerOpen} onOpenChange={setPlanDrawerOpen} refetchQueryKeys={['fetchPlan']} />
 			<ApiDocsContent tags={['Plans']} />
 			<AddEntitlementDrawer
 				selectedFeatures={planData.entitlements?.map((v) => v.feature)}
@@ -326,7 +353,7 @@ const PlanDetailsPage = () => {
 				<DetailsCard variant='stacked' title='Plan Details' data={planDetails} />
 
 				{/* plan charges table */}
-				<PlanPriceTable plan={planData as any} onPriceUpdate={() => queryClient.invalidateQueries({ queryKey: ['fetchPlan', planId] })} />
+				<PlanPriceTable plan={planData as Plan} onPriceUpdate={() => queryClient.invalidateQueries({ queryKey: ['fetchPlan', planId] })} />
 
 				{planData.entitlements?.length || 0 > 0 ? (
 					<Card variant='notched'>
@@ -375,6 +402,34 @@ const PlanDetailsPage = () => {
 						}
 					/>
 				)}
+
+				{/* Metadata Section */}
+				<Card variant='notched'>
+					<CardHeader
+						title='Metadata'
+						cta={
+							<Button variant='outline' size='icon' onClick={() => setMetadataModalOpen(true)}>
+								<Pencil className='size-5' />
+							</Button>
+						}
+					/>
+					{metadata && Object.keys(metadata).length > 0 ? (
+						<DetailsCard
+							variant='stacked'
+							data={
+								metadata && Object.keys(metadata).length > 0
+									? Object.entries(metadata).map(([key, value]) => ({ label: key, value }))
+									: [{ label: 'No metadata available.', value: '' }]
+							}
+							cardStyle='borderless'
+						/>
+					) : (
+						<div className='text-center py-8'>
+							<h3 className='text-lg font-medium text-gray-900 mb-1'>No metadata</h3>
+							<p className='text-sm text-gray-500 mb-4'>Add custom metadata to store additional information about this plan.</p>
+						</div>
+					)}
+				</Card>
 				<Spacer className='!h-20' />
 			</div>
 		</Page>

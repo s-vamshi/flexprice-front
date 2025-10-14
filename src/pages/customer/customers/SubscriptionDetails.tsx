@@ -21,6 +21,7 @@ import { INVOICE_TYPE } from '@/models/Invoice';
 import TaxApi from '@/api/TaxApi';
 import { TAXRATE_ENTITY_TYPE } from '@/models/Tax';
 import TaxAssociationTable from '@/components/molecules/TaxAssociationTable';
+import { SUBSCRIPTION_STATUS } from '@/models/Subscription';
 
 // Enhanced function to format expiration period with duration units
 export const formatExpirationPeriod = (grant: CreditGrant): string => {
@@ -92,6 +93,11 @@ const SubscriptionDetails: FC = () => {
 		queryFn: async () => {
 			return await SubscriptionApi.getSubscriptionInvoicesPreview({ subscription_id: subscription_id! });
 		},
+		enabled:
+			!!subscriptionDetails &&
+			subscriptionDetails.subscription_status !== SUBSCRIPTION_STATUS.CANCELLED &&
+			subscriptionDetails.subscription_status !== SUBSCRIPTION_STATUS.TRIALING &&
+			!!subscription_id,
 	});
 
 	const { data: creditGrants } = useQuery({
@@ -101,7 +107,11 @@ const SubscriptionDetails: FC = () => {
 				subscription_ids: [subscription_id!],
 			});
 		},
-		enabled: !!subscription_id,
+		enabled:
+			!!subscriptionDetails &&
+			subscriptionDetails.subscription_status !== SUBSCRIPTION_STATUS.CANCELLED &&
+			subscriptionDetails.subscription_status !== SUBSCRIPTION_STATUS.TRIALING &&
+			!!subscription_id,
 	});
 
 	const { data: subscriptionTaxAssociations } = useQuery({

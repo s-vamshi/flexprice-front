@@ -1,35 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, Button, Input, Textarea } from '@/components/atoms';
-import { AddChargesButton } from '@/components/organisms/PlanForm/SetupChargesSection';
 import { Trash2 } from 'lucide-react';
+import { AddChargesButton } from '@/components/organisms/PlanForm/SetupChargesSection';
 
 interface MetadataModalProps {
 	open: boolean;
 	data: Record<string, string>;
-	onChange: (data: Record<string, string>) => void;
 	onSave: (data: Record<string, string>) => void;
 	onClose: () => void;
 }
 
-const MetadataModal: React.FC<MetadataModalProps> = ({ open, data, onChange, onSave, onClose }) => {
+const MetadataModal: React.FC<MetadataModalProps> = ({ open, data, onSave, onClose }) => {
 	const [localData, setLocalData] = useState<{ key: string; value: string }[]>([]);
 
-	// Sync local state with prop
+	// Sync local state with prop when modal opens
 	useEffect(() => {
-		const entries = Object.entries(data);
-		const keys = entries.length > 0 ? entries.map(([key]) => key) : [''];
-		setLocalData(keys.map((key) => ({ key, value: data[key] })));
+		if (open) {
+			const entries = Object.entries(data);
+			const keys = entries.length > 0 ? entries.map(([key]) => key) : [''];
+			setLocalData(keys.map((key) => ({ key, value: data[key] || '' })));
+		}
 	}, [data, open]);
-
-	// Call onChange whenever localData changes
-	useEffect(() => {
-		const obj: Record<string, string> = {};
-		localData.forEach(({ key, value }) => {
-			if (key) obj[key] = value;
-		});
-		onChange(obj);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [localData]);
 
 	const handleKeyChange = (idx: number, newKey: string) => {
 		setLocalData((prev) => {

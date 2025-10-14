@@ -20,15 +20,15 @@ const PlanDrawer: FC<Props> = ({ data, open, onOpenChange, trigger, refetchQuery
 	const isEdit = !!data;
 	const navigate = useNavigate();
 
-	const [formData, setFormData] = useState<Partial<Plan>>(
-		data || {
-			name: '',
-			description: '',
-			lookup_key: '',
-			prices: [],
-		},
-	);
-	const [errors, setErrors] = useState<Partial<Record<keyof Plan, string>>>({});
+	const [formData, setFormData] = useState<CreatePlanRequest & { id?: string }>({
+		name: data?.name || '',
+		description: data?.description || '',
+		lookup_key: data?.lookup_key || '',
+		metadata: data?.metadata,
+		id: data?.id,
+	});
+	const [metadataString, setMetadataString] = useState<string>(data?.metadata ? JSON.stringify(data.metadata, null, 2) : '');
+	const [errors, setErrors] = useState<Partial<Record<keyof CreatePlanRequest, string>>>({});
 
 	const { mutate: updatePlan, isPending } = useMutation<
 		PlanResponse | CreatePlanResponse,
@@ -55,19 +55,28 @@ const PlanDrawer: FC<Props> = ({ data, open, onOpenChange, trigger, refetchQuery
 
 	useEffect(() => {
 		if (data) {
-			setFormData(data);
+			// Map Plan to CreatePlanRequest structure for form
+			setFormData({
+				id: data.id,
+				name: data.name || '',
+				description: data.description || '',
+				lookup_key: data.lookup_key || '',
+				metadata: data.metadata,
+			});
+			setMetadataString(data.metadata ? JSON.stringify(data.metadata, null, 2) : '');
 		} else {
 			setFormData({
 				name: '',
 				description: '',
 				lookup_key: '',
-				prices: [],
 			});
+			setMetadataString('');
 		}
+		setErrors({});
 	}, [data]);
 
 	const validateForm = () => {
-		const newErrors: Partial<Record<keyof Plan, string>> = {};
+		const newErrors: Partial<Record<keyof CreatePlanRequest, string>> = {};
 
 		if (!formData.name?.trim()) {
 			newErrors.name = 'Name is required';
@@ -75,6 +84,22 @@ const PlanDrawer: FC<Props> = ({ data, open, onOpenChange, trigger, refetchQuery
 
 		if (!formData.lookup_key?.trim()) {
 			newErrors.lookup_key = 'Lookup key is required';
+		}
+
+		if (metadataString.trim()) {
+			try {
+				const parsed = JSON.parse(metadataString);
+				if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+					newErrors.metadata = 'Metadata must be a JSON object';
+				} else {
+					const allStrings = Object.values(parsed).every((val) => typeof val === 'string');
+					if (!allStrings) {
+						newErrors.metadata = 'All metadata values must be strings';
+					}
+				}
+			} catch {
+				newErrors.metadata = 'Invalid Metadata format';
+			}
 		}
 
 		setErrors(newErrors);
@@ -86,21 +111,31 @@ const PlanDrawer: FC<Props> = ({ data, open, onOpenChange, trigger, refetchQuery
 			return;
 		}
 
+		let metadata = undefined;
+		if (metadataString.trim()) {
+			try {
+				metadata = JSON.parse(metadataString);
+			} catch {
+				return;
+			}
+		}
+
 		if (isEdit) {
-			// Build UpdatePlanRequest DTO - only include editable fields
 			const updateDto: UpdatePlanRequest & { id: string } = {
 				id: formData.id!,
-				name: formData.name?.trim(),
+				name: formData.name.trim(),
 				lookup_key: formData.lookup_key,
 				description: formData.description,
+				metadata,
 			};
 			updatePlan(updateDto);
 		} else {
 			// Build CreatePlanRequest DTO
 			const createDto: CreatePlanRequest = {
-				name: formData.name!.trim(),
+				name: formData.name.trim(),
 				lookup_key: formData.lookup_key,
 				description: formData.description,
+				metadata,
 			};
 			updatePlan(createDto);
 		}
@@ -151,6 +186,23 @@ const PlanDrawer: FC<Props> = ({ data, open, onOpenChange, trigger, refetchQuery
 				label='Description'
 				description='Helps your team to understand the purpose of this plan.'
 			/>
+
+			<Spacer height={'20px'} />
+			<Textarea
+				value={metadataString}
+				onChange={(e) => {
+					setMetadataString(e);
+					if (errors.metadata) {
+						setErrors({ ...errors, metadata: undefined });
+					}
+				}}
+				error={errors.metadata}
+				className='min-h-[100px]'
+				placeholder='{"key": "value"}'
+				label='Metadata (Optional)'
+				description='Additional metadata as JSON. All values must be strings.'
+			/>
+
 			<Spacer height={'20px'} />
 			<Button isLoading={isPending} disabled={isPending || !formData.name?.trim() || !formData.lookup_key?.trim()} onClick={handleSave}>
 				{isEdit ? 'Save' : 'Create Plan'}
