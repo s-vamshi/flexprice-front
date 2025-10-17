@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import crypto from 'crypto';
+import { execSync } from 'child_process';
 
-const versionId = crypto.randomUUID();
+const versionId = execSync('git rev-parse HEAD').toString().trim();
 
 const meta = { versionId };
 

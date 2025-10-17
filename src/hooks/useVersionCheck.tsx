@@ -2,11 +2,13 @@ import { useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 
 const isNotProd = import.meta.env.VITE_APP_ENVIRONMENT !== 'prod';
-export default function useVersionCheck(intervalMs = 60 * 1000) {
+const LAST_DISMISSED_VERSION = 'lastDismissedVersion';
+
+export default function useVersionCheck(intervalMs = 5 * 60 * 1000) {
 	const currentVersion = __APP_VERSION__;
 
 	useEffect(() => {
-		if (!isNotProd) {
+		if (isNotProd) {
 			console.log('[VersionCheck] Skipped in dev mode');
 			return;
 		}
@@ -19,15 +21,18 @@ export default function useVersionCheck(intervalMs = 60 * 1000) {
 				}
 				const meta = await res.json();
 				const latestVersion = meta.versionId;
+				const dismissedVersion = localStorage.getItem(LAST_DISMISSED_VERSION);
 				const timestamp = new Date().toISOString();
 				if (latestVersion !== currentVersion) {
+					if (dismissedVersion === latestVersion) {
+						console.info(`[VersionCheck][${timestamp}] Dismissed version: ${latestVersion}`);
+						return;
+					}
+
 					console.info(`[VersionCheck][${timestamp}] New version detected. Current: ${currentVersion}, Latest: ${latestVersion}`);
-					toast.custom(
+					const toastId = toast(
 						(t) => (
-							<div
-								className={`${
-									t.visible ? 'animate-enter' : 'animate-leave'
-								} max-w-md w-full bg-yellow-400 text-black p-4 rounded shadow-lg flex justify-between items-center`}>
+							<div className='text-sm text-black rounded flex justify-between items-center'>
 								<span>New version available!</span>
 								<button
 									className='ml-4 bg-black text-white px-2 py-1 rounded'
@@ -35,13 +40,22 @@ export default function useVersionCheck(intervalMs = 60 * 1000) {
 										toast.dismiss(t.id);
 										window.location.reload();
 									}}>
-									Refresh
+									Update
+								</button>
+								<button
+									className='ml-4 bg-black text-white px-2 py-1 rounded'
+									onClick={() => {
+										localStorage.setItem(LAST_DISMISSED_VERSION, latestVersion);
+										toast.dismiss(toastId);
+									}}>
+									Ignore
 								</button>
 							</div>
 						),
 						{
-							duration: 1000 * 60 * 60 * 24 * 365,
-							id: latestVersion,
+							duration: Infinity,
+							id: 'version-check-notification',
+							position: 'bottom-right',
 						},
 					);
 				} else {
